@@ -1,5 +1,5 @@
 /* 
-Copyright 2018 615283 (James Conway), 2019-2020 synapses
+Copyright 2023 615283 (James Conway), 2019-2020 synapses
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -18,16 +18,87 @@ limitations under the License.
 
 const RoonApi = require('node-roon-api'),
     RoonApiTransport = require('node-roon-api-transport'),
-    DiscordRPC = require('discord-rpc');
+    DiscordRPC = require('discord-rpc'),
+    RoonApiImage = require('node-roon-api-image'),
+    fs = require('fs'),
+    imgur = require('imgur-node-api'),
+    ImgurAnonymousUploader = require('imgur-anonymous-uploader');
 
-let _core, _transport, _rpc;
+let _core, _transport, _rpc, _image, _uploader;
 let reconnectionTimer, discordConnected = false, roonConnected = false, lastSentStatus = 0;
 
 const settings = require('./config.json');
 
+const usedResults = {};
+const MAX_CACHED_RESULTS = 10;
+const recentResults = [];
+
+/**
+ * created by chat gpt 3
+ * @param image_key
+ * @returns {*}
+ */
+function getImageUrl(image_key) {
+    if (usedResults.hasOwnProperty(image_key)) {
+        console.log("has image from cache!");
+        // Return the previously calculated unique string for this input string
+        return new Promise((resolve, reject) => {
+            resolve(usedResults[image_key]);
+        });
+    } else {
+        return fetchImageUrl(image_key);
+    }
+}
+
+function addNewImageToCache(key, url) {
+    usedResults[key] = url;
+
+    // Add the input string to the recentResults array
+    recentResults.unshift(key);
+
+    // If the recentResults array is longer than MAX_CACHED_RESULTS, remove the oldest item
+    if (recentResults.length > MAX_CACHED_RESULTS) {
+        const oldestInputString = recentResults.pop();
+        delete usedResults[oldestInputString];
+    }
+}
+
+
+imgur.setClientID(settings.imgur.clientId);
+_uploader = new ImgurAnonymousUploader(settings.imgur.clientId);
+
 function scheduleReconnection() {
     clearTimeout(reconnectionTimer);
     reconnectionTimer = setTimeout(connectToDiscord, 5 * 1000);
+}
+
+function fetchImageUrl(image_key) {
+    return new Promise((resolve, reject) => {
+        console.log('Downloading image key=' + image_key);
+
+        let options = {scale: 'fit', width: 200, height: 200};
+        // wait for roon
+        _image.get_image(image_key, options, function (error, content_type, image) {
+            if (error === true) {
+                console.log('Error:' + error);
+                reject(error);
+                return;
+            }
+            // wait for file write
+            fs.writeFile('image.tmp', image, async function (err) {
+                if (err === true) {
+                    reject(err);
+                }
+                console.log('Uploading image');
+                // wait for imgur
+                let uploadResponse = await _uploader.upload('image.tmp');
+                console.log(uploadResponse);
+                console.log('\\o/', uploadResponse.url);
+                addNewImageToCache(image_key, uploadResponse.url);
+                resolve(uploadResponse.url);
+            });
+        });
+    });
 }
 
 async function connectToDiscord() {
@@ -37,7 +108,7 @@ async function connectToDiscord() {
         await _rpc.destroy();
     }
 
-    _rpc = new DiscordRPC.Client({ transport: 'ipc' });
+    _rpc = new DiscordRPC.Client({transport: 'ipc'});
 
     _rpc.on('ready', () => {
         console.log(`Authed for user: ${_rpc.user.username}`);
@@ -72,7 +143,7 @@ async function connectToDiscord() {
     try {
         // (syn): by sending `scopes`, the client constantly prompts for auth.
         // seems to work fine without it.
-        await _rpc.login({ clientId: settings.discord.clientId });
+        await _rpc.login({clientId: settings.discord.clientId});
     } catch (e) {
         console.error(e);
 
@@ -90,11 +161,21 @@ function setStatusForZone(zone) {
     } else if (zone.state === 'loading') {
         setActivityLoading(zone.display_name);
     } else if (zone.state === 'playing') {
-        setActivity(zone.now_playing.two_line.line1, zone.now_playing.two_line.line2, zone.now_playing.length, zone.now_playing.seek_position, zone.display_name);
+
+        setActivity(
+            zone.now_playing.two_line.line1,
+            zone.now_playing.two_line.line2,
+            zone.now_playing.length,
+            zone.now_playing.seek_position,
+            zone.display_name,
+            zone.now_playing.image_key,
+            zone.now_playing.artist_image_keys[0] ?? ''
+        );
+
     }
 }
 
-async function setActivity(line1, line2, songLength, currentSeek, zoneName) {
+async function setActivity(line1, line2, songLength, currentSeek, zoneName, largeImageKey, smallImageKey) {
     const startTimestamp = Math.round((new Date().getTime() / 1000) - currentSeek);
     const endTimestamp = Math.round(startTimestamp + songLength);
 
@@ -105,18 +186,26 @@ async function setActivity(line1, line2, songLength, currentSeek, zoneName) {
         lastSentStatus = Date.now();
     }
 
-    _rpc.setActivity({
-        details: line1.substring(0, 128),
-        state: line2.substring(0, 128),
-        startTimestamp,
-        endTimestamp,
-        largeImageKey: 'roon-main',
-        largeImageText: `Zone: ${zoneName}`,
-        smallImageKey: 'play-symbol',
-        smallImageText: 'Roon',
-        instance: false,
+    let artist = line2.substring(0, 128) + "";
+    if (artist === "") {
+        artist = "-";
+    }
+    let largePromise = getImageUrl(largeImageKey);
+    let smallPromise = getImageUrl(smallImageKey);
+    Promise.all([largePromise, smallPromise]).then((values) => {
+        let [largeImageUrl, smallImageUrl] = values;
+        _rpc.setActivity({
+            details: line1.substring(0, 128),
+            state: artist,
+            startTimestamp,
+            endTimestamp,
+            largeImageKey: largeImageUrl, //'roon-main',
+            largeImageText: `Zone: ${zoneName}`,
+            smallImageKey: smallImageUrl,
+            smallImageText: artist,
+            instance: false,
+        });
     });
-
 }
 
 async function setActivityLoading(zoneName) {
@@ -139,7 +228,6 @@ async function setActivityStopped() {
 }
 
 DiscordRPC.register(settings.discord.clientId);
-
 if (settings.app.auto_shutdown) {
     setTimeout(() => {
         process.exit(0);
@@ -149,15 +237,15 @@ if (settings.app.auto_shutdown) {
 const roon = new RoonApi({
     extension_id: 'moe.tdr.roon-discord-rp',
     display_name: 'Discord Rich Presence',
-    display_version: '1.0',
-    publisher: 'William Teder',
-    email: 'twitter@williamtdr',
-    website: 'https://tdr.moe',
+    display_version: '1.1',
+    publisher: 'Echo Fox',
+    email: 'lgg.greg@gmail.com',
+    website: 'https://boxfox.rocks',
 
     core_paired: core => {
         _core = core;
         _transport = _core.services.RoonApiTransport;
-
+        _image = _core.services.RoonApiImage;
         let activeZone = null
         _transport.subscribe_zones((cmd, data) => {
             if (settings.zone_id) {
@@ -201,12 +289,13 @@ const roon = new RoonApi({
     core_unpaired: core => {
         _core = undefined;
         _transport = undefined;
+        _image = undefined;
         roonConnected = false;
     }
 });
 
 roon.init_services({
-    required_services: [RoonApiTransport]
+    required_services: [RoonApiTransport, RoonApiImage]
 });
 
 connectToDiscord();

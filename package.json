@@ -7,7 +7,12 @@
   "license": "Apache-2.0",
   "dependencies": {
     "discord-rpc": "^4.0.1",
+    "fs": "^0.0.1-security",
+    "fsa": "^0.5.1",
+    "imgur-anonymous-uploader": "^1.1.5",
+    "imgur-node-api": "^0.1.0",
     "node-roon-api": "github:roonlabs/node-roon-api",
+    "node-roon-api-image": "github:RoonLabs/node-roon-api-image",
     "node-roon-api-transport": "github:roonlabs/node-roon-api-transport"
   }
 }
