@@ -4,8 +4,13 @@
   // Optional: ID of the zoon to filter out
   "zone_id": "",
   // Discord app information
+  // Get this by going to https://discord.com/developers/applications , create an application, and copy the application id
   "discord": {
-    "clientId": "464873958232162353"
+    "clientId": ""
+  },
+  // Get this by going to https://api.imgur.com/oauth2/addclient and createing an application
+  "imgur": {
+    "clientId": ""
   },
   // App configuration
   "app": {
