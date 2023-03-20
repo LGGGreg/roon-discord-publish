@@ -85,17 +85,19 @@ function fetchImageUrl(image_key) {
                 return;
             }
             // wait for file write
-            fs.writeFile('image.tmp', image, async function (err) {
+            let path = image_key+'.tmp';
+            fs.writeFile(path, image, async function (err) {
                 if (err === true) {
                     reject(err);
                 }
                 console.log('Uploading image');
                 // wait for imgur
-                let uploadResponse = await _uploader.upload('image.tmp');
+                let uploadResponse = await _uploader.upload(path);
                 console.log(uploadResponse);
                 console.log('\\o/', uploadResponse.url);
                 addNewImageToCache(image_key, uploadResponse.url);
                 resolve(uploadResponse.url);
+                fs.rm(path,()=>{});
             });
         });
     });
