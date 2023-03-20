@@ -23,6 +23,9 @@ const recentResults = [];
  * @returns {*}
  */
 function getImageResponse(image_key) {
+    if (image_key === ''){
+        return image_key;
+    }
     if (usedResults.hasOwnProperty(image_key)) {
         console.log("has image from cache!");
         // Return the previously calculated unique string for this input string
@@ -82,7 +85,7 @@ function fetchImageResponse(image_key) {
                 let uploadResponse = await _uploader.upload(path);
                 console.log(uploadResponse);
                 console.log('\\o/', uploadResponse.url);
-                addNewImageToCache(image_key, uploadResponse);
+                await addNewImageToCache(image_key, uploadResponse);
                 resolve(uploadResponse.url);
                 fs.rm(path,()=>{});
             });
@@ -150,7 +153,10 @@ function setStatusForZone(zone) {
     } else if (zone.state === 'loading') {
         setActivityLoading(zone.display_name);
     } else if (zone.state === 'playing') {
-
+        let artistImageKey = '';
+        if(typeof zone.now_playing.artist_image_keys !== 'undefined' && zone.now_playing.artist_image_keys.length > 0 ){
+            artistImageKey = zone.now_playing.artist_image_keys[0];
+        }
         setActivity(
             zone.now_playing.two_line.line1,
             zone.now_playing.two_line.line2,
@@ -158,7 +164,7 @@ function setStatusForZone(zone) {
             zone.now_playing.seek_position,
             zone.display_name,
             zone.now_playing.image_key,
-            zone.now_playing.artist_image_keys[0] ?? ''
+            artistImageKey
         );
 
     }
