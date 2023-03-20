@@ -1,19 +1,3 @@
-/* 
-Copyright 2023 615283 (James Conway), 2019-2020 synapses
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 'use strict';
 
 const RoonApi = require('node-roon-api'),
@@ -30,7 +14,7 @@ let reconnectionTimer, discordConnected = false, roonConnected = false, lastSent
 const settings = require('./config.json');
 
 const usedResults = {};
-const MAX_CACHED_RESULTS = 10;
+const MAX_CACHED_RESULTS = 2;
 const recentResults = [];
 
 /**
@@ -38,7 +22,7 @@ const recentResults = [];
  * @param image_key
  * @returns {*}
  */
-function getImageUrl(image_key) {
+function getImageResponse(image_key) {
     if (usedResults.hasOwnProperty(image_key)) {
         console.log("has image from cache!");
         // Return the previously calculated unique string for this input string
@@ -46,12 +30,12 @@ function getImageUrl(image_key) {
             resolve(usedResults[image_key]);
         });
     } else {
-        return fetchImageUrl(image_key);
+        return fetchImageResponse(image_key);
     }
 }
 
-function addNewImageToCache(key, url) {
-    usedResults[key] = url;
+async function addNewImageToCache(key, response) {
+    usedResults[key] = response;
 
     // Add the input string to the recentResults array
     recentResults.unshift(key);
@@ -59,6 +43,9 @@ function addNewImageToCache(key, url) {
     // If the recentResults array is longer than MAX_CACHED_RESULTS, remove the oldest item
     if (recentResults.length > MAX_CACHED_RESULTS) {
         const oldestInputString = recentResults.pop();
+        let recordToDelete = usedResults[oldestInputString];
+        const deleteResponse = await _uploader.delete(recordToDelete.deleteHash);
+        console.log(deleteResponse);
         delete usedResults[oldestInputString];
     }
 }
@@ -72,7 +59,7 @@ function scheduleReconnection() {
     reconnectionTimer = setTimeout(connectToDiscord, 5 * 1000);
 }
 
-function fetchImageUrl(image_key) {
+function fetchImageResponse(image_key) {
     return new Promise((resolve, reject) => {
         console.log('Downloading image key=' + image_key);
 
@@ -95,7 +82,7 @@ function fetchImageUrl(image_key) {
                 let uploadResponse = await _uploader.upload(path);
                 console.log(uploadResponse);
                 console.log('\\o/', uploadResponse.url);
-                addNewImageToCache(image_key, uploadResponse.url);
+                addNewImageToCache(image_key, uploadResponse);
                 resolve(uploadResponse.url);
                 fs.rm(path,()=>{});
             });
@@ -192,18 +179,18 @@ async function setActivity(line1, line2, songLength, currentSeek, zoneName, larg
     if (artist === "") {
         artist = "-";
     }
-    let largePromise = getImageUrl(largeImageKey);
-    let smallPromise = getImageUrl(smallImageKey);
+    let largePromise = getImageResponse(largeImageKey);
+    let smallPromise = getImageResponse(smallImageKey);
     Promise.all([largePromise, smallPromise]).then((values) => {
-        let [largeImageUrl, smallImageUrl] = values;
+        let [largeImageResp, smallImageResp] = values;
         _rpc.setActivity({
             details: line1.substring(0, 128),
             state: artist,
             startTimestamp,
             endTimestamp,
-            largeImageKey: largeImageUrl, //'roon-main',
+            largeImageKey: largeImageResp.url, //'roon-main',
             largeImageText: `Zone: ${zoneName}`,
-            smallImageKey: smallImageUrl,
+            smallImageKey: smallImageResp.url,
             smallImageText: artist,
             instance: false,
         });
