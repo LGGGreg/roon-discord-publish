@@ -183,7 +183,7 @@ async function setActivity(line1, line2, songLength, currentSeek, zoneName, larg
 
     let artist = line2.substring(0, 128) + "";
     if (artist === "") {
-        artist = "-";
+        artist = "--";
     }
     let largePromise = getImageResponse(largeImageKey);
     let smallPromise = getImageResponse(smallImageKey);
