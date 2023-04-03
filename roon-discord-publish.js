@@ -130,6 +130,10 @@ function scheduleReconnection() {
 function fetchImageResponse(image_key) {
     return new Promise((resolve, reject) => {
         console.log('Downloading image key=' + image_key);
+        if(typeof image_key == 'undefined' || image_key === "undefined"){
+            resolve('');
+            return;
+        }
 
         let options = {scale: 'fit', width: 200, height: 200};
         // wait for roon
