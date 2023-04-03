@@ -12,6 +12,11 @@
   "imgur": {
     "clientId": ""
   },
+  // spotify app for buttons
+  "spotify": {
+    "client": "",
+    "secret": ""
+  },
   // App configuration
   "app": {
     "auto_shutdown": false,

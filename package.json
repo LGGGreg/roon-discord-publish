@@ -13,6 +13,7 @@
     "imgur-node-api": "^0.1.0",
     "node-roon-api": "github:roonlabs/node-roon-api",
     "node-roon-api-image": "github:RoonLabs/node-roon-api-image",
-    "node-roon-api-transport": "github:roonlabs/node-roon-api-transport"
+    "node-roon-api-transport": "github:roonlabs/node-roon-api-transport",
+    "spotify-web-api-node": "^5.0.2"
   }
 }

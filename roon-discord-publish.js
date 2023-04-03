@@ -6,16 +6,69 @@ const RoonApi = require('node-roon-api'),
     RoonApiImage = require('node-roon-api-image'),
     fs = require('fs'),
     imgur = require('imgur-node-api'),
+    SpotifyWebApi = require('spotify-web-api-node'),
     ImgurAnonymousUploader = require('imgur-anonymous-uploader');
 
-let _core, _transport, _rpc, _image, _uploader;
+let _core, _transport, _rpc, _image, _uploader, _spotifyApi;
 let reconnectionTimer, discordConnected = false, roonConnected = false, lastSentStatus = 0;
 
 const settings = require('./config.json');
 
 const usedResults = {};
-const MAX_CACHED_RESULTS = 2;
+const MAX_CACHED_RESULTS = 3;
 const recentResults = [];
+
+function getSpotifyUrl(title, artist, album) {
+    let key = title + artist + album;
+    if (key === '') {
+        return key;
+    }
+    if (usedResults.hasOwnProperty(key)) {
+        //console.log("has image from cache!");
+        // Return the previously calculated unique string for this input string
+        return new Promise((resolve, reject) => {
+            resolve(usedResults[key]);
+        });
+    } else {
+        return fetchSpotifyUrl(title, artist, album);
+    }
+}
+
+function fetchSpotifyUrl(title, artist, album) {
+    return new Promise(async (resolve, reject) => {
+        console.log('Search spotify for' + title + artist + album);
+        try {
+            _spotifyApi.searchTracks('track:' + title + ' artist:' + artist)//+' album:'+album)
+                .then(async function (data) {
+                    console.log('Search tracks by "' + artist + '" in the track name and "' + artist + '" in the artist name', data.body);
+                    //console.log(data.body.tracks.items[0].external_urls.spotify);
+                    if (data &&
+                        data.body &&
+                        data.body.tracks &&
+                        data.body.tracks.items &&
+                        data.body.tracks.items[0] &&
+                        data.body.tracks.items[0].external_urls &&
+                        data.body.tracks.items[0].external_urls.spotify) {
+                        // All properties exist
+                        let url = data.body.tracks.items[0].external_urls.spotify;
+                        await addNewImageToCache(title + artist + album, url);
+                        resolve(url);
+                    } else {
+                        await addNewImageToCache(title + artist + album, '');
+                        reject("missing a property in " + data)
+                    }
+
+                }, async function (err) {
+                    console.log('Something went wrong!', err);
+                    await addNewImageToCache(title + artist + album, '');
+                    reject(err);
+                });
+        } catch (err) {
+            await addNewImageToCache(title + artist + album, '');
+            reject(err);
+        }
+    });
+}
 
 /**
  * created by chat gpt 3
@@ -23,11 +76,11 @@ const recentResults = [];
  * @returns {*}
  */
 function getImageResponse(image_key) {
-    if (image_key === ''){
+    if (image_key === '') {
         return image_key;
     }
     if (usedResults.hasOwnProperty(image_key)) {
-        console.log("has image from cache!");
+        //console.log("has image from cache!");
         // Return the previously calculated unique string for this input string
         return new Promise((resolve, reject) => {
             resolve(usedResults[image_key]);
@@ -56,6 +109,18 @@ async function addNewImageToCache(key, response) {
 
 imgur.setClientID(settings.imgur.clientId);
 _uploader = new ImgurAnonymousUploader(settings.imgur.clientId);
+_spotifyApi = new SpotifyWebApi({
+    clientId: settings.spotify.client,
+    clientSecret: settings.spotify.secret
+});
+_spotifyApi.clientCredentialsGrant().then(
+    function (data) {
+        _spotifyApi.setAccessToken(data.body['access_token']);
+    },
+    function (err) {
+        console.log('Something went wrong when retrieving an access token', err);
+    }
+);
 
 function scheduleReconnection() {
     clearTimeout(reconnectionTimer);
@@ -75,7 +140,7 @@ function fetchImageResponse(image_key) {
                 return;
             }
             // wait for file write
-            let path = image_key+'.tmp';
+            let path = image_key + '.tmp';
             fs.writeFile(path, image, async function (err) {
                 if (err === true) {
                     reject(err);
@@ -87,7 +152,8 @@ function fetchImageResponse(image_key) {
                 console.log('\\o/', uploadResponse.url);
                 await addNewImageToCache(image_key, uploadResponse);
                 resolve(uploadResponse.url);
-                fs.rm(path,()=>{});
+                fs.rm(path, () => {
+                });
             });
         });
     });
@@ -154,7 +220,7 @@ function setStatusForZone(zone) {
         setActivityLoading(zone.display_name);
     } else if (zone.state === 'playing') {
         let artistImageKey = '';
-        if(typeof zone.now_playing.artist_image_keys !== 'undefined' && zone.now_playing.artist_image_keys.length > 0 ){
+        if (typeof zone.now_playing.artist_image_keys !== 'undefined' && zone.now_playing.artist_image_keys.length > 0) {
             artistImageKey = zone.now_playing.artist_image_keys[0];
         }
         setActivity(
@@ -185,32 +251,51 @@ async function setActivity(line1, line2, songLength, currentSeek, zoneName, larg
     if (artist === "") {
         artist = "--";
     }
+    let details = line1.substring(0, 128) + "";
+    let detailsSmaller = line1.substring(0, 20) + "";
+    if (details === "") {
+        details = "--";
+        detailsSmaller = "--";
+    }
     let largePromise = getImageResponse(largeImageKey);
     let smallPromise = getImageResponse(smallImageKey);
-    Promise.all([largePromise, smallPromise]).then((values) => {
-        let [largeImageResp, smallImageResp] = values;
-        _rpc.setActivity({
-            details: line1.substring(0, 128),
-            state: artist,
-            startTimestamp,
-            endTimestamp,
-            largeImageKey: largeImageResp.url, //'roon-main',
-            largeImageText: `Zone: ${zoneName}`,
-            smallImageKey: smallImageResp.url,
-            smallImageText: artist,
-            instance: false,
+    let spotifyPromise = getSpotifyUrl(details, artist, '');
+    Promise
+        .all([largePromise, smallPromise, spotifyPromise])
+        .then((values) => {
+            console.log("values are");
+            console.log(values);
+            let [largeImageResp, smallImageResp, spotifyUrl] = values;
+            let activity = {
+                details: details,
+                state: artist,
+                startTimestamp,
+                endTimestamp,
+                largeImageKey: largeImageResp.url, //'roon-main',
+                largeImageText: `Zone: ${zoneName}`,
+                smallImageKey: smallImageResp.url,
+                smallImageText: artist
+            };
+
+            if(spotifyUrl!=''){
+                activity.buttons = [{label: "Spotify Link for " + detailsSmaller, url: spotifyUrl}];
+            }
+            _rpc.setActivity(activity);
+        })
+        .catch((error) => {
+            console.error(error.message);
         });
-    });
 }
 
 async function setActivityLoading(zoneName) {
-    _rpc.setActivity({
+    await _rpc.setActivity({
         details: 'Loading...',
         largeImageKey: 'roon-main',
         largeImageText: `Zone: ${zoneName}`,
         smallImageKey: 'roon-small',
         smallImageText: 'Roon',
-        instance: false
+        instance: false,
+        type: 2
     });
 }
 
