@@ -30,17 +30,24 @@ function getSpotifyUrl(title, artist, album) {
             resolve(usedResults[key]);
         });
     } else {
-        return fetchSpotifyUrl(title, artist, album);
+        return fetchSpotifyUrl(key, title, artist, album);
     }
 }
 
-function fetchSpotifyUrl(title, artist, album) {
+function fetchSpotifyUrl(key, title, artist, album) {
     return new Promise(async (resolve, reject) => {
         console.log('Search spotify for' + title + artist + album);
         try {
-            _spotifyApi.searchTracks('track:' + title + ' artist:' + artist)//+' album:'+album)
+            let query = '';
+            if (title !== "") {
+                query += 'track:' + title;
+            }
+            if (artist !== "") {
+                query += 'artist:' + artist;
+            }
+            _spotifyApi.searchTracks(query)//+' album:'+album)
                 .then(async function (data) {
-                    console.log('Search tracks by "' + artist + '" in the track name and "' + artist + '" in the artist name', data.body);
+                    console.log('Search tracks by "' + title + '" in the track name and "' + artist + '" in the artist name', data.body);
                     //console.log(data.body.tracks.items[0].external_urls.spotify);
                     if (data &&
                         data.body &&
@@ -51,20 +58,29 @@ function fetchSpotifyUrl(title, artist, album) {
                         data.body.tracks.items[0].external_urls.spotify) {
                         // All properties exist
                         let url = data.body.tracks.items[0].external_urls.spotify;
-                        await addNewImageToCache(title + artist + album, url);
+                        await addNewImageToCache(key, url);
                         resolve(url);
                     } else {
-                        await addNewImageToCache(title + artist + album, '');
-                        reject("missing a property in " + data)
+                        //Did not find it, try searching without the artist
+                        if (artist !== '') {
+                            await fetchSpotifyUrl(key, title, '', album).then(function (data) {
+                                resolve(data);
+                            }).catch(function (err) {
+                                reject(err);
+                            });
+                        } else {
+                            await addNewImageToCache(key, '');
+                            reject("missing a property in " + data)
+                        }
                     }
 
                 }, async function (err) {
                     console.log('Something went wrong!', err);
-                    await addNewImageToCache(title + artist + album, '');
+                    await addNewImageToCache(key, '');
                     reject(err);
                 });
         } catch (err) {
-            await addNewImageToCache(title + artist + album, '');
+            await addNewImageToCache(key, '');
             reject(err);
         }
     });
@@ -100,8 +116,10 @@ async function addNewImageToCache(key, response) {
     if (recentResults.length > MAX_CACHED_RESULTS) {
         const oldestInputString = recentResults.pop();
         let recordToDelete = usedResults[oldestInputString];
-        const deleteResponse = await _uploader.delete(recordToDelete.deleteHash);
-        console.log(deleteResponse);
+        if (recordToDelete && recordToDelete.deleteHash) {
+            const deleteResponse = await _uploader.delete(recordToDelete.deleteHash);
+            console.log(deleteResponse);
+        }
         delete usedResults[oldestInputString];
     }
 }
@@ -130,7 +148,7 @@ function scheduleReconnection() {
 function fetchImageResponse(image_key) {
     return new Promise((resolve, reject) => {
         console.log('Downloading image key=' + image_key);
-        if(typeof image_key == 'undefined' || image_key === "undefined"){
+        if (typeof image_key == 'undefined' || image_key === "undefined") {
             resolve('');
             return;
         }
@@ -267,8 +285,8 @@ async function setActivity(line1, line2, songLength, currentSeek, zoneName, larg
     Promise
         .all([largePromise, smallPromise, spotifyPromise])
         .then((values) => {
-            console.log("values are");
-            console.log(values);
+            //console.log("values are");
+            //console.log(values);
             let [largeImageResp, smallImageResp, spotifyUrl] = values;
             let activity = {
                 details: details,
@@ -281,7 +299,7 @@ async function setActivity(line1, line2, songLength, currentSeek, zoneName, larg
                 smallImageText: artist
             };
 
-            if(spotifyUrl!=''){
+            if (spotifyUrl !== '') {
                 activity.buttons = [{label: "Spotify Link for " + detailsSmaller, url: spotifyUrl}];
             }
             _rpc.setActivity(activity);
