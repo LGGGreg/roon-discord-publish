@@ -172,6 +172,7 @@ function fetchImageResponse(image_key) {
     return new Promise((resolve, reject) => {
         console.log('Downloading image key=' + image_key);
         if (typeof image_key == 'undefined' || image_key === "undefined") {
+            addNewImageToCache(image_key, '');
             resolve('');
             return;
         }
@@ -179,8 +180,9 @@ function fetchImageResponse(image_key) {
         let options = {scale: 'fit', width: 200, height: 200};
         // wait for roon
         _image.get_image(image_key, options, function (error, content_type, image) {
-            if (error === true) {
+            if (error === true || typeof image == 'undefined') {
                 console.log('Error:' + error);
+                addNewImageToCache(image_key, '');
                 reject(error);
                 return;
             }
@@ -329,6 +331,18 @@ async function setActivity(line1, line2, songLength, currentSeek, zoneName, larg
         })
         .catch((error) => {
             console.error(error.message);
+            let activity = {
+                details: details,
+                state: artist,
+                startTimestamp,
+                endTimestamp,
+                largeImageKey: 'roon-main',//largeImageResp.url, //'roon-main',
+                largeImageText: `Zone: ${zoneName}`,
+                smallImageKey: 'roon-main',//smallImageResp.url,
+                smallImageText: artist
+            };
+
+            _rpc.setActivity(activity);
         });
 }
 
