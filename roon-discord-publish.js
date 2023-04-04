@@ -10,7 +10,8 @@ const RoonApi = require('node-roon-api'),
     ImgurAnonymousUploader = require('imgur-anonymous-uploader');
 
 let _core, _transport, _rpc, _image, _uploader, _spotifyApi;
-let reconnectionTimer, discordConnected = false, roonConnected = false, lastSentStatus = 0;
+let reconnectionTimer, discordConnected = false, roonConnected = false, lastSentStatus = 0,
+    spotifyTokenExpiration = Date.now();
 
 const settings = require('./config.json');
 
@@ -36,6 +37,9 @@ function getSpotifyUrl(title, artist, album) {
 
 function fetchSpotifyUrl(key, title, artist, album) {
     return new Promise(async (resolve, reject) => {
+        if (spotifyTokenExpiration < Date.now()) {
+            refreshSpotifyToken();
+        }
         console.log('Search spotify for' + title + artist + album);
         try {
             let query = '';
@@ -43,7 +47,7 @@ function fetchSpotifyUrl(key, title, artist, album) {
                 query += 'track:' + title;
             }
             if (artist !== "") {
-                query += 'artist:' + artist;
+                query += ' artist:' + artist;
             }
             _spotifyApi.searchTracks(query)//+' album:'+album)
                 .then(async function (data) {
@@ -61,7 +65,16 @@ function fetchSpotifyUrl(key, title, artist, album) {
                         await addNewImageToCache(key, url);
                         resolve(url);
                     } else {
-                        //Did not find it, try searching without the artist
+                        // More than one artist? try without the extras
+                        let dualArtists = artist.split('/');
+                        if (dualArtists.length > 1) {
+                            await fetchSpotifyUrl(key, title, dualArtists[0].trim(), album).then(function (data) {
+                                resolve(data);
+                            }).catch(function (err) {
+                                reject(err);
+                            });
+                        } else
+                            //Did not find it, try searching without the artist
                         if (artist !== '') {
                             await fetchSpotifyUrl(key, title, '', album).then(function (data) {
                                 resolve(data);
@@ -80,6 +93,10 @@ function fetchSpotifyUrl(key, title, artist, album) {
                     reject(err);
                 });
         } catch (err) {
+            if (err.statusCode === 401) {
+                // refresh the token
+                refreshSpotifyToken();
+            }
             await addNewImageToCache(key, '');
             reject(err);
         }
@@ -131,14 +148,20 @@ _spotifyApi = new SpotifyWebApi({
     clientId: settings.spotify.client,
     clientSecret: settings.spotify.secret
 });
-_spotifyApi.clientCredentialsGrant().then(
-    function (data) {
-        _spotifyApi.setAccessToken(data.body['access_token']);
-    },
-    function (err) {
-        console.log('Something went wrong when retrieving an access token', err);
-    }
-);
+
+function refreshSpotifyToken() {
+    _spotifyApi.clientCredentialsGrant().then(
+        function (data) {
+            spotifyTokenExpiration = Date.now() + parseInt(data.body['expires_in']);
+            _spotifyApi.setAccessToken(data.body['access_token']);
+        },
+        function (err) {
+            console.log('Something went wrong when retrieving an access token', err);
+        }
+    );
+}
+
+refreshSpotifyToken();
 
 function scheduleReconnection() {
     clearTimeout(reconnectionTimer);
@@ -274,7 +297,7 @@ async function setActivity(line1, line2, songLength, currentSeek, zoneName, larg
         artist = "--";
     }
     let details = line1.substring(0, 128) + "";
-    let detailsSmaller = line1.substring(0, 20) + "";
+    let detailsSmaller = line1.substring(0, 32 - 17) + "";
     if (details === "") {
         details = "--";
         detailsSmaller = "--";
