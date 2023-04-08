@@ -27,7 +27,7 @@ function getSpotifyUrl(title, artist, album) {
     if (usedResults.hasOwnProperty(key)) {
         //console.log("has image from cache!");
         // Return the previously calculated unique string for this input string
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             resolve(usedResults[key]);
         });
     } else {
@@ -58,10 +58,10 @@ function fetchSpotifyUrl(key, title, artist, album) {
                         data.body.tracks &&
                         data.body.tracks.items &&
                         data.body.tracks.items[0] &&
-                        data.body.tracks.items[0].external_urls &&
-                        data.body.tracks.items[0].external_urls.spotify) {
+                        data.body.tracks.items[0]['external_urls'] &&
+                        data.body.tracks.items[0]['external_urls']['spotify']) {
                         // All properties exist
-                        let url = data.body.tracks.items[0].external_urls.spotify;
+                        let url = data.body.tracks.items[0]['external_urls']['spotify'];
                         await addNewImageToCache(key, url);
                         resolve(url);
                     } else {
@@ -115,7 +115,7 @@ function getImageResponse(image_key) {
     if (usedResults.hasOwnProperty(image_key)) {
         //console.log("has image from cache!");
         // Return the previously calculated unique string for this input string
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             resolve(usedResults[image_key]);
         });
     } else {
@@ -172,7 +172,9 @@ function fetchImageResponse(image_key) {
     return new Promise((resolve, reject) => {
         console.log('Downloading image key=' + image_key);
         if (typeof image_key == 'undefined' || image_key === "undefined") {
-            addNewImageToCache(image_key, '');
+            addNewImageToCache(image_key, '').then(function () {
+                console.log('saved blank to cache');
+            });
             resolve('');
             return;
         }
@@ -182,7 +184,10 @@ function fetchImageResponse(image_key) {
         _image.get_image(image_key, options, function (error, content_type, image) {
             if (error === true || typeof image == 'undefined') {
                 console.log('Error:' + error);
-                addNewImageToCache(image_key, '');
+                addNewImageToCache(image_key, '').then(() => {
+                    console.log('saved blank to cache');
+                });
+                resolve('');
                 reject(error);
                 return;
             }
@@ -209,7 +214,7 @@ function fetchImageResponse(image_key) {
 async function connectToDiscord() {
     console.log("Connecting to Discord...");
 
-    if (_rpc && _rpc.transport.socket && _rpc.transport.socket.readyState === 1) {
+    if (_rpc && _rpc.transport.socket) {
         await _rpc.destroy();
     }
 
@@ -228,8 +233,12 @@ async function connectToDiscord() {
                 roon.start_discovery();
             } else {
                 roon.ws_connect({
-                    host: settings.core_ip,
-                    port: "9100"
+                    host: settings.core_ip + "",
+                    port: 9100,
+                    onclose: function () {
+                    },
+                    onerror: function () {
+                    },
                 });
             }
 
@@ -256,21 +265,25 @@ async function connectToDiscord() {
     }
 }
 
-function setStatusForZone(zone) {
-    if (!discordConnected) return;
-
+async function setStatusForZone(zone) {
+    if (!discordConnected) {
+        return;
+    }
+    if (typeof zone.state == 'undefined') {
+        return;
+    }
     if (zone.state === 'stopped') {
-        setActivityStopped();
+        await setActivityStopped();
     } else if (zone.state === 'paused') {
-        setActivityPaused(zone.now_playing.two_line.line1, zone.now_playing.two_line.line2, zone.display_name);
+        await setActivityPaused(zone.now_playing.two_line.line1, zone.now_playing.two_line.line2, zone.display_name);
     } else if (zone.state === 'loading') {
-        setActivityLoading(zone.display_name);
+        await setActivityLoading(zone.display_name);
     } else if (zone.state === 'playing') {
         let artistImageKey = '';
-        if (typeof zone.now_playing.artist_image_keys !== 'undefined' && zone.now_playing.artist_image_keys.length > 0) {
-            artistImageKey = zone.now_playing.artist_image_keys[0];
+        if (typeof zone.now_playing['artist_image_keys'] !== 'undefined' && zone.now_playing['artist_image_keys'].length > 0) {
+            artistImageKey = zone.now_playing['artist_image_keys'][0];
         }
-        setActivity(
+        await setActivity(
             zone.now_playing.two_line.line1,
             zone.now_playing.two_line.line2,
             zone.now_playing.length,
@@ -358,12 +371,12 @@ async function setActivityLoading(zoneName) {
     });
 }
 
-async function setActivityPaused(line1, line2, zoneName) {
-    _rpc.clearActivity();
+async function setActivityPaused() {
+    return _rpc.clearActivity();
 }
 
 async function setActivityStopped() {
-    _rpc.clearActivity();
+    return _rpc.clearActivity();
 }
 
 DiscordRPC.register(settings.discord.clientId);
@@ -383,44 +396,69 @@ const roon = new RoonApi({
 
     core_paired: core => {
         _core = core;
-        _transport = _core.services.RoonApiTransport;
-        _image = _core.services.RoonApiImage;
+        _transport = _core.services['RoonApiTransport'];
+        _image = _core.services['RoonApiImage'];
         let activeZone = null
-        _transport.subscribe_zones((cmd, data) => {
+        let activeZoneId = null;
+        let nextZoneId = null;
+        _transport.subscribe_zones(async (cmd, data) => {
             if (settings.zone_id) {
-                activeZone = _transport._zones[settings.zone_id];
+                activeZoneId = settings.zone_id;
             }
-
+            //try the "next" one first, if we can
+            if (activeZoneId === null
+                && nextZoneId !== null
+                && _transport._zones[nextZoneId]
+                && _transport._zones[nextZoneId].state
+                && _transport._zones[nextZoneId].state === 'playing') {
+                activeZoneId = nextZoneId;
+                nextZoneId = null;
+            }
             // We have no zone, set it to the latest "playing"
             // zone.
-            if (activeZone === null) {
+            if (activeZoneId === null) {
                 for (const zoneID of Object.keys(_transport._zones)) {
                     const zone = _transport._zones[zoneID]
                     if (zone.state === 'playing') {
-                        activeZone = zone
-                        break
+                        activeZoneId = zoneID;
+                        activeZone = zone;
+                        break;
                     }
                 }
 
-                if (activeZone === null) {
-                    console.warn("Failed to find an active zone")
-                    return
+                if (activeZoneId === null) {
+                    console.warn("Failed to find an active zone");
+                    return;
                 }
 
                 console.log("Active zone changed:", activeZone.zone_id, activeZone.display_name)
             }
-
+            activeZone = _transport._zones[activeZoneId];
             if (cmd === 'Changed') {
-                if (data.zones_removed) {
-                    setActivityStopped();
+                if (data['zones_removed']) {
+                    await setActivityStopped();
+                } else if (data['zones_changed']) {
+                    if (!settings.zone_id) {
+                        // if we are not locked into a zone, and we got a changed cmd, try to follow the change even if others are still going
+                        // pick the zone that is not our current one
+                        data['zones_changed'].forEach((element) => {
+                            if (element.zone_id && element.zone_id !== activeZoneId) {
+                                nextZoneId = element.zone_id;
+                                activeZoneId = element.zone_id;
+                                activeZone = _transport._zones[activeZoneId];
+                            }
+                        });
+                    }
                 } else {
-                    setStatusForZone(_transport._zones[activeZone.zone_id]);
+                    await setStatusForZone(_transport._zones[activeZone.zone_id]);
                 }
             }
 
-            if (activeZone.state !== 'playing') {
+            //console.log('My zone of '+activeZone.display_name +' is '+ activeZone.state);
+            if (activeZone && activeZone.state && activeZone.state !== 'playing') {
                 console.log("Active zone stopped, resetting")
-                activeZone = null
+                activeZone = null;
+                activeZoneId = null;
             }
         });
     },
@@ -437,4 +475,6 @@ roon.init_services({
     required_services: [RoonApiTransport, RoonApiImage]
 });
 
-connectToDiscord();
+connectToDiscord().then(() => {
+    console.log('connected')
+});
