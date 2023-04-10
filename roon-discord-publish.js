@@ -459,6 +459,8 @@ const roon = new RoonApi({
                 console.log("Active zone stopped, resetting")
                 activeZone = null;
                 activeZoneId = null;
+                //clear out the status, don't need to show we paused
+                await setActivityPaused();
             }
         });
     },
