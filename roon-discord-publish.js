@@ -334,7 +334,8 @@ async function setActivity(line1, line2, songLength, currentSeek, zoneName, larg
                 largeImageKey: largeImageResp.url, //'roon-main',
                 largeImageText: `Zone: ${zoneName}`,
                 smallImageKey: smallImageResp.url,
-                smallImageText: artist
+                smallImageText: artist,
+                type: 2
             };
 
             if (spotifyUrl !== '') {
@@ -352,7 +353,8 @@ async function setActivity(line1, line2, songLength, currentSeek, zoneName, larg
                 largeImageKey: 'roon-main',//largeImageResp.url, //'roon-main',
                 largeImageText: `Zone: ${zoneName}`,
                 smallImageKey: 'roon-main',//smallImageResp.url,
-                smallImageText: artist
+                smallImageText: artist,
+                type: 2
             };
 
             _rpc.setActivity(activity);
