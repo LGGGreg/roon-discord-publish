@@ -288,7 +288,11 @@ function initializeServices() {
     });
 
     roonService.on('core-paired', (core) => {
-        logger.info('Roon', `Core paired: ${core.display_name}`, core);
+        logger.info('Roon', `Core paired: ${core.display_name}`, {
+            core_id: core.core_id,
+            display_name: core.display_name,
+            display_version: core.display_version
+        });
         if (mainWindow) {
             mainWindow.webContents.send('roon-core-paired', core);
         }
@@ -310,7 +314,12 @@ function initializeServices() {
 
     roonService.on('track-changed', (track) => {
         const trackInfo = roonService.getCurrentTrack();
-        logger.info('Roon', `Track changed: ${trackInfo?.title || 'Unknown'}`, trackInfo);
+        logger.info('Roon', `Track changed: ${trackInfo?.title || 'Unknown'}`, {
+            title: trackInfo?.title,
+            artist: trackInfo?.artist,
+            album: trackInfo?.album,
+            zoneName: trackInfo?.zoneName
+        });
 
         if (mainWindow) {
             mainWindow.webContents.send('roon-track-changed', trackInfo);
@@ -579,4 +588,51 @@ ipcMain.handle('service-get-all-status', () => {
     }
 
     return status;
+});
+
+// Request service status (for initial load)
+ipcMain.handle('request-service-status', () => {
+    console.log('Frontend requested service status');
+
+    // Send current status to renderer
+    if (mainWindow) {
+        if (discordService) {
+            const discordStats = discordService.getStats();
+            console.log('Sending Discord status:', discordStats);
+            mainWindow.webContents.send('service-status-changed', {
+                service: 'discord',
+                status: discordStats.state,
+                details: discordStats.details || 'Connection established',
+                error: discordStats.lastError
+            });
+        }
+
+        if (roonService) {
+            const roonStats = roonService.getStats();
+            console.log('Sending Roon status:', roonStats);
+            mainWindow.webContents.send('service-status-changed', {
+                service: 'roon',
+                status: roonStats.state,
+                details: roonStats.details || 'Connecting to Roon Core...',
+                error: roonStats.lastError
+            });
+        }
+
+        // Send default status for services not yet implemented
+        mainWindow.webContents.send('service-status-changed', {
+            service: 'spotify',
+            status: 'disconnected',
+            details: 'Not connected to Spotify API',
+            error: null
+        });
+
+        mainWindow.webContents.send('service-status-changed', {
+            service: 'imgur',
+            status: 'disconnected',
+            details: 'Not connected to Imgur API',
+            error: null
+        });
+    }
+
+    return true;
 });

@@ -92,6 +92,7 @@ class DiscordService extends ConnectionManager {
         
         this.rpc.on('ready', () => {
             console.log(`Discord RPC ready for user: ${this.rpc.user?.username || 'Unknown'}`);
+            this.setState(ConnectionManager.ConnectionState.CONNECTED, 'Connection established');
             this.emit('discord-ready', this.rpc.user);
         });
         

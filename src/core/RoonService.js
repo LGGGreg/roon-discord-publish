@@ -43,6 +43,12 @@ class RoonService extends ConnectionManager {
      */
     async connect() {
         try {
+            // Don't reconnect if already connected and working
+            if (this.isConnected() && this.roon && this.transport) {
+                console.log('Roon already connected and working, skipping reconnection');
+                return true;
+            }
+
             // Clean up existing connection
             if (this.roon) {
                 await this.cleanupRoon();
@@ -53,14 +59,14 @@ class RoonService extends ConnectionManager {
             const useDiscovery = this.configManager.get('app.use_discovery', true);
             const roonState = this.configManager.get('roonstate', {});
             
-            // Create Roon API instance
+            // Create Roon API instance (using same extension ID as working console app)
             this.roon = new RoonApi({
-                extension_id: 'com.echofox.roon-discord-publish',
-                display_name: 'Roon Discord Rich Presence',
-                display_version: '0.7.0',
+                extension_id: 'moe.tdr.roon-discord-rp',
+                display_name: 'Discord Rich Presence',
+                display_version: '1.1',
                 publisher: 'Echo Fox',
-                email: 'roon@echofox.com',
-                website: 'https://github.com/echofox/roon-discord-publish',
+                email: 'lgg.greg@gmail.com',
+                website: 'https://boxfox.rocks',
                 core_paired: this.handleCorePaired.bind(this),
                 core_unpaired: this.handleCoreUnpaired.bind(this)
             });
@@ -74,24 +80,18 @@ class RoonService extends ConnectionManager {
             this.setupRoonEventHandlers();
             
             // Restore pairing state
-            if (roonState.tokens) {
-                this.roon.load_config(roonState);
+            if (roonState.tokens && this.roon && typeof this.roon.load_config === 'function') {
+                try {
+                    this.roon.load_config(roonState);
+                    console.log('Roon pairing state restored');
+                } catch (error) {
+                    console.error('Error loading Roon config:', error);
+                }
             }
             
-            // Start discovery or connect to specific core
-            if (useDiscovery || !coreIp) {
-                console.log('Starting Roon discovery...');
-                this.roon.start_discovery();
-            } else {
-                console.log(`Connecting to Roon Core at ${coreIp}...`);
-                this.roon.connect(coreIp, (core) => {
-                    if (core) {
-                        this.handleCoreFound(core);
-                    } else {
-                        throw new Error(`Failed to connect to Roon Core at ${coreIp}`);
-                    }
-                });
-            }
+            // Start discovery (always use discovery like the working console app)
+            console.log('Starting Roon discovery...');
+            this.roon.start_discovery();
             
             // Wait for connection with timeout
             return new Promise((resolve, reject) => {
@@ -157,14 +157,44 @@ class RoonService extends ConnectionManager {
         this.transport = core.services['RoonApiTransport'];
         this.image = core.services['RoonApiImage'];
 
-        // Save pairing state
-        const roonState = this.roon.save_config();
-        this.configManager.set('roonstate', roonState, true);
+        // Save pairing state after a delay to ensure pairing is complete
+        setTimeout(() => {
+            try {
+                if (this.roon && typeof this.roon.save_config === 'function') {
+                    const roonState = this.roon.save_config();
+                    console.log('Saving Roon state:', JSON.stringify(roonState, null, 2));
+
+                    if (roonState && Object.keys(roonState).length > 0) {
+                        this.configManager.set('roonstate', roonState, true);
+                        console.log('Roon pairing state saved successfully');
+
+                        // Verify it was saved
+                        const savedState = this.configManager.get('roonstate');
+                        console.log('Verified saved state:', JSON.stringify(savedState, null, 2));
+                    } else {
+                        console.warn('Roon state is empty or undefined, not saving');
+                    }
+                } else {
+                    console.warn('Cannot save Roon config - roon object not available');
+                }
+            } catch (error) {
+                console.error('Error saving Roon config:', error);
+            }
+        }, 1000); // Wait 1 second for pairing to complete
+
+        // Set connection state to connected
+        this.setState(ConnectionManager.ConnectionState.CONNECTED, 'Core paired successfully');
 
         // Subscribe to services
         this.subscribeToServices();
 
-        this.emit('core-paired', core);
+        // Emit with safe core info (avoid circular references)
+        const safeCoreInfo = {
+            core_id: core.core_id,
+            display_name: core.display_name,
+            display_version: core.display_version
+        };
+        this.emit('core-paired', safeCoreInfo);
     }
     
     /**
@@ -190,26 +220,35 @@ class RoonService extends ConnectionManager {
     }
     
     /**
-     * Subscribe to Roon services
+     * Subscribe to Roon services (simplified to match working console app)
      */
     subscribeToServices() {
-        if (!this.core || !this.transport) return;
+        if (!this.core || !this.transport) {
+            console.log('Core or transport not available for subscription');
+            return;
+        }
 
         try {
-            // Subscribe to zones
-            this.transport.subscribe_zones((response, msg) => {
-                if (response === 'Subscribed') {
-                    console.log('Subscribed to Roon zones');
-                    this.handleZonesUpdate(msg);
-                } else if (response === 'Changed') {
-                    this.handleZonesUpdate(msg);
+            console.log('Subscribing to Roon zones...');
+
+            // Use the exact same pattern as the working console app
+            this.transport.subscribe_zones(async (cmd, data) => {
+                try {
+                    console.log('Zones subscription command:', cmd);
+
+                    if (cmd === 'Subscribed' || cmd === 'Changed') {
+                        if (data && data.zones) {
+                            this.handleZonesUpdate(data);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error in zones subscription callback:', error);
                 }
             });
 
-            // Subscribe to queue for the current zone
-            this.updateQueueSubscription();
         } catch (error) {
             console.error('Error subscribing to Roon services:', error);
+            this.setState(ConnectionManager.ConnectionState.ERROR, 'Subscription failed');
         }
     }
     
@@ -257,22 +296,12 @@ class RoonService extends ConnectionManager {
     }
     
     /**
-     * Update queue subscription for current zone
+     * Update queue subscription for current zone (removed - not used in working console app)
      */
     updateQueueSubscription() {
-        if (!this.currentZone || !this.transport) return;
-
-        try {
-            this.transport.subscribe_queue(this.currentZone, (response, msg) => {
-                if (response === 'Subscribed') {
-                    console.log(`Subscribed to queue for zone: ${this.currentZone.display_name}`);
-                } else if (response === 'Changed') {
-                    this.handleQueueUpdate(msg);
-                }
-            });
-        } catch (error) {
-            console.error('Error subscribing to queue:', error);
-        }
+        // The working console app doesn't use subscribe_queue
+        // It gets track info directly from zones data
+        console.log('Queue subscription not needed - using zones data for track info');
     }
     
     /**

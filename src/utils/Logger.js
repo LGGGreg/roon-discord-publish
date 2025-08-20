@@ -148,23 +148,43 @@ class Logger extends EventEmitter {
     }
     
     /**
+     * Safe JSON stringify that handles circular references
+     */
+    safeStringify(obj, indent = 2) {
+        const seen = new WeakSet();
+        return JSON.stringify(obj, (key, val) => {
+            if (val != null && typeof val === 'object') {
+                if (seen.has(val)) {
+                    return '[Circular Reference]';
+                }
+                seen.add(val);
+            }
+            return val;
+        }, indent);
+    }
+
+    /**
      * Format log message
      */
     formatMessage(level, category, message, data = null) {
         const timestamp = this.formatTimestamp();
         const levelName = LogLevelNames[level].padEnd(5);
         const categoryStr = category ? `[${category}]` : '';
-        
+
         let formattedMessage = `${timestamp} ${levelName} ${categoryStr} ${message}`;
-        
+
         if (data) {
             if (typeof data === 'object') {
-                formattedMessage += '\n' + JSON.stringify(data, null, 2);
+                try {
+                    formattedMessage += '\n' + this.safeStringify(data, 2);
+                } catch (error) {
+                    formattedMessage += '\n[Object - could not stringify]';
+                }
             } else {
                 formattedMessage += ` ${data}`;
             }
         }
-        
+
         return formattedMessage;
     }
     
