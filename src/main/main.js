@@ -8,6 +8,7 @@ const DiscordService = require('../core/DiscordService');
 const RoonService = require('../core/RoonService');
 const SpotifyService = require('../core/SpotifyService');
 const ImgurService = require('../core/ImgurService');
+const StatusMonitor = require('../core/StatusMonitor');
 const Logger = require('../utils/Logger');
 
 // Keep a global reference of the window object
@@ -21,6 +22,7 @@ let discordService;
 let roonService;
 let spotifyService;
 let imgurService;
+let statusMonitor;
 let logger;
 
 // Enable live reload for development
@@ -213,6 +215,18 @@ function initializeServices() {
     // Initialize ImgurService
     imgurService = new ImgurService(configManager);
 
+    // Initialize StatusMonitor
+    statusMonitor = new StatusMonitor(logger);
+
+    // Register all services with the status monitor
+    statusMonitor.registerService('discord', discordService);
+    statusMonitor.registerService('roon', roonService);
+    statusMonitor.registerService('spotify', spotifyService);
+    statusMonitor.registerService('imgur', imgurService);
+
+    // Start monitoring
+    statusMonitor.startMonitoring();
+
     // Set up logger GUI integration
     logger.on('log-entry', (logEntry) => {
         if (mainWindow) {
@@ -384,6 +398,32 @@ function initializeServices() {
                 details: event.details,
                 error: event.error?.message
             });
+        }
+    });
+
+    // Set up StatusMonitor events (performance monitoring only)
+    statusMonitor.on('service-performance-checked', (serviceName, performanceData) => {
+        if (mainWindow) {
+            mainWindow.webContents.send('service-performance-checked', {
+                service: serviceName,
+                ...performanceData
+            });
+        }
+    });
+
+    statusMonitor.on('performance-alert', (serviceName, alert) => {
+        logger.warn('StatusMonitor', `Performance Alert for ${serviceName}: ${alert.message}`, alert);
+        if (mainWindow) {
+            mainWindow.webContents.send('performance-alert', {
+                service: serviceName,
+                ...alert
+            });
+        }
+    });
+
+    statusMonitor.on('health-check-completed', (overallStatus) => {
+        if (mainWindow) {
+            mainWindow.webContents.send('health-check-completed', overallStatus);
         }
     });
 
@@ -834,6 +874,51 @@ ipcMain.handle('service-get-all-status', () => {
     }
 
     return status;
+});
+
+// Status Monitor IPC handlers
+ipcMain.handle('status-monitor-get-overall', () => {
+    if (!statusMonitor) return null;
+    return statusMonitor.getOverallStatus();
+});
+
+ipcMain.handle('status-monitor-get-service', (event, serviceName) => {
+    if (!statusMonitor) return null;
+    return statusMonitor.getServiceStatus(serviceName);
+});
+
+ipcMain.handle('status-monitor-get-all-metrics', () => {
+    if (!statusMonitor) return {};
+    return statusMonitor.getAllMetrics();
+});
+
+ipcMain.handle('status-monitor-reset-metrics', (event, serviceName) => {
+    if (!statusMonitor) return false;
+    statusMonitor.resetServiceMetrics(serviceName);
+    return true;
+});
+
+ipcMain.handle('status-monitor-get-config', () => {
+    if (!statusMonitor) return {};
+    return statusMonitor.getConfig();
+});
+
+ipcMain.handle('status-monitor-update-config', (event, newConfig) => {
+    if (!statusMonitor) return false;
+    statusMonitor.updateConfig(newConfig);
+    return true;
+});
+
+ipcMain.handle('status-monitor-start', () => {
+    if (!statusMonitor) return false;
+    statusMonitor.startMonitoring();
+    return true;
+});
+
+ipcMain.handle('status-monitor-stop', () => {
+    if (!statusMonitor) return false;
+    statusMonitor.stopMonitoring();
+    return true;
 });
 
 // Request service status (for initial load)
