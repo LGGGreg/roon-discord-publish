@@ -57,15 +57,23 @@ test.describe('Roon Discord Rich Presence - Status Page', () => {
         // Check Discord service card exists
         await expect(page.locator('[data-service="discord"]')).toBeVisible();
         await expect(page.locator('[data-testid="discord-status-text"]')).toBeVisible();
-        
+
         // Check Roon service card exists
         await expect(page.locator('[data-service="roon"]')).toBeVisible();
         await expect(page.locator('[data-testid="roon-status-text"]')).toBeVisible();
-        
+
+        // Check Spotify service card exists
+        await expect(page.locator('[data-service="spotify"]')).toBeVisible();
+        await expect(page.locator('[data-testid="spotify-status-text"]')).toBeVisible();
+
+        // Check Imgur service card exists
+        await expect(page.locator('[data-service="imgur"]')).toBeVisible();
+        await expect(page.locator('[data-testid="imgur-status-text"]')).toBeVisible();
+
         // Take screenshot of status cards
-        await page.screenshot({ 
+        await page.screenshot({
             path: `${SCREENSHOT_DIR}/02-status-cards.png`,
-            fullPage: true 
+            fullPage: true
         });
     });
 
@@ -88,6 +96,16 @@ test.describe('Roon Discord Rich Presence - Status Page', () => {
         const roonStatus = await page.locator('[data-testid="roon-status-text"]').textContent();
         console.log('Roon status:', roonStatus);
         expect(['Connected', 'Connecting', 'Reconnecting']).toContain(roonStatus);
+
+        // Check Spotify status (should be connected or connecting)
+        const spotifyStatus = await page.locator('[data-testid="spotify-status-text"]').textContent();
+        console.log('Spotify status:', spotifyStatus);
+        expect(['Connected', 'Connecting', 'Reconnecting', 'Disconnected']).toContain(spotifyStatus);
+
+        // Check Imgur status (should be connected or connecting)
+        const imgurStatus = await page.locator('[data-testid="imgur-status-text"]').textContent();
+        console.log('Imgur status:', imgurStatus);
+        expect(['Connected', 'Connecting', 'Reconnecting', 'Disconnected']).toContain(imgurStatus);
     });
 
     test('should have working reconnect buttons', async () => {
@@ -161,9 +179,59 @@ test.describe('Roon Discord Rich Presence - Status Page', () => {
         await page.locator('[data-tab="status"]').click();
         await page.waitForTimeout(500);
         
-        await page.screenshot({ 
+        await page.screenshot({
             path: `${SCREENSHOT_DIR}/08-back-to-status.png`,
-            fullPage: true 
+            fullPage: true
         });
+    });
+
+    test('should show now playing section', async () => {
+        // Check now playing section exists
+        await expect(page.locator('.now-playing-section')).toBeVisible();
+        await expect(page.locator('[data-testid="track-title"]')).toBeVisible();
+        await expect(page.locator('[data-testid="track-artist"]')).toBeVisible();
+        await expect(page.locator('[data-testid="track-album"]')).toBeVisible();
+        await expect(page.locator('[data-testid="track-zone"]')).toBeVisible();
+
+        // Check if refresh activity button exists
+        await expect(page.locator('[data-testid="refresh-activity"]')).toBeVisible();
+
+        // Take screenshot of now playing section
+        await page.screenshot({
+            path: `${SCREENSHOT_DIR}/09-now-playing.png`,
+            fullPage: true
+        });
+
+        // Get current track info
+        const trackTitle = await page.locator('[data-testid="track-title"]').textContent();
+        const trackArtist = await page.locator('[data-testid="track-artist"]').textContent();
+        const trackAlbum = await page.locator('[data-testid="track-album"]').textContent();
+        const trackZone = await page.locator('[data-testid="track-zone"]').textContent();
+
+        console.log('Now Playing:', {
+            title: trackTitle,
+            artist: trackArtist,
+            album: trackAlbum,
+            zone: trackZone
+        });
+
+        // If music is playing, check for Spotify link
+        if (trackTitle !== '-' && trackArtist !== '-') {
+            // Wait a moment for Spotify search to complete
+            await page.waitForTimeout(3000);
+
+            const spotifyLink = page.locator('[data-testid="spotify-link"]');
+            const isSpotifyLinkVisible = await spotifyLink.isVisible();
+
+            if (isSpotifyLinkVisible) {
+                console.log('Spotify link is available');
+                await page.screenshot({
+                    path: `${SCREENSHOT_DIR}/10-spotify-link-available.png`,
+                    fullPage: true
+                });
+            } else {
+                console.log('Spotify link not available');
+            }
+        }
     });
 });

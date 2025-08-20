@@ -56,31 +56,31 @@
                         </div>
                     </div>
 
-                    <div class="status-card">
+                    <div class="status-card" data-service="spotify">
                         <div class="status-header">
                             <h3>Spotify</h3>
                             <div class="status-indicator" id="spotify-status">
-                                <span class="status-dot disconnected"></span>
-                                <span class="status-text">Disconnected</span>
+                                <span class="status-dot disconnected" data-testid="spotify-status-dot"></span>
+                                <span class="status-text" data-testid="spotify-status-text">Disconnected</span>
                             </div>
                         </div>
                         <div class="status-details">
-                            <p id="spotify-details">Not connected to Spotify API</p>
-                            <button class="btn btn-small" id="spotify-reconnect">Reconnect</button>
+                            <p id="spotify-details" data-testid="spotify-details">Not connected to Spotify API</p>
+                            <button class="btn btn-small" id="spotify-reconnect" data-testid="spotify-reconnect">Reconnect</button>
                         </div>
                     </div>
 
-                    <div class="status-card">
+                    <div class="status-card" data-service="imgur">
                         <div class="status-header">
                             <h3>Imgur</h3>
                             <div class="status-indicator" id="imgur-status">
-                                <span class="status-dot disconnected"></span>
-                                <span class="status-text">Disconnected</span>
+                                <span class="status-dot disconnected" data-testid="imgur-status-dot"></span>
+                                <span class="status-text" data-testid="imgur-status-text">Disconnected</span>
                             </div>
                         </div>
                         <div class="status-details">
-                            <p id="imgur-details">Not connected to Imgur API</p>
-                            <button class="btn btn-small" id="imgur-reconnect">Reconnect</button>
+                            <p id="imgur-details" data-testid="imgur-details">Not connected to Imgur API</p>
+                            <button class="btn btn-small" id="imgur-reconnect" data-testid="imgur-reconnect">Reconnect</button>
                         </div>
                     </div>
                 </div>
@@ -97,9 +97,10 @@
                             </div>
                         </div>
                         <div class="track-info">
-                            <h3 id="track-title">-</h3>
-                            <p id="track-artist">-</p>
-                            <p id="track-album">-</p>
+                            <h3 id="track-title" data-testid="track-title">-</h3>
+                            <p id="track-artist" data-testid="track-artist">-</p>
+                            <p id="track-album" data-testid="track-album">-</p>
+                            <p id="track-zone" data-testid="track-zone" class="zone-info">-</p>
                             <div class="track-progress">
                                 <div class="progress-bar">
                                     <div class="progress-fill" id="progress-fill"></div>
@@ -108,6 +109,14 @@
                                     <span id="current-time">0:00</span>
                                     <span id="total-time">0:00</span>
                                 </div>
+                            </div>
+                            <div class="track-actions" id="track-actions" style="display: none;">
+                                <button class="btn btn-small btn-spotify" id="spotify-link" data-testid="spotify-link" style="display: none;">
+                                    🎵 Open in Spotify
+                                </button>
+                                <button class="btn btn-small" id="refresh-activity" data-testid="refresh-activity">
+                                    🔄 Refresh Activity
+                                </button>
                             </div>
                         </div>
                     </div>

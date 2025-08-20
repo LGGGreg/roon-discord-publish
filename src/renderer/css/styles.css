@@ -312,6 +312,29 @@ body {
     color: #999;
 }
 
+.zone-info {
+    color: #888 !important;
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+.track-actions {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.btn-spotify {
+    background: #1db954 !important;
+    color: white !important;
+    border: none;
+}
+
+.btn-spotify:hover {
+    background: #1ed760 !important;
+}
+
 /* Quick Actions */
 .quick-actions {
     display: flex;

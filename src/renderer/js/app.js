@@ -63,11 +63,14 @@ function updateCurrentTrack(trackInfo) {
         title: document.getElementById('track-title'),
         artist: document.getElementById('track-artist'),
         album: document.getElementById('track-album'),
+        zone: document.getElementById('track-zone'),
         albumImage: document.getElementById('album-image'),
         noMusic: document.getElementById('no-music'),
         progressFill: document.getElementById('progress-fill'),
         currentTime: document.getElementById('current-time'),
-        totalTime: document.getElementById('total-time')
+        totalTime: document.getElementById('total-time'),
+        trackActions: document.getElementById('track-actions'),
+        spotifyLink: document.getElementById('spotify-link')
     };
     
     if (trackInfo.title && trackInfo.title !== '-') {
@@ -75,6 +78,7 @@ function updateCurrentTrack(trackInfo) {
         elements.title.textContent = trackInfo.title;
         elements.artist.textContent = trackInfo.artist || '-';
         elements.album.textContent = trackInfo.album || '-';
+        elements.zone.textContent = trackInfo.zoneName ? `Zone: ${trackInfo.zoneName}` : '-';
         
         // Handle album art
         if (trackInfo.albumArt) {
@@ -93,16 +97,37 @@ function updateCurrentTrack(trackInfo) {
             elements.currentTime.textContent = formatTime(trackInfo.progress);
             elements.totalTime.textContent = formatTime(trackInfo.duration);
         }
+
+        // Show track actions
+        if (elements.trackActions) {
+            elements.trackActions.style.display = 'flex';
+        }
+
+        // Handle Spotify link
+        if (elements.spotifyLink) {
+            if (trackInfo.spotifyUrl) {
+                elements.spotifyLink.style.display = 'inline-block';
+                elements.spotifyLink.onclick = () => {
+                    require('electron').shell.openExternal(trackInfo.spotifyUrl);
+                };
+            } else {
+                elements.spotifyLink.style.display = 'none';
+                // Try to get Spotify URL asynchronously
+                getSpotifyUrl(trackInfo.title, trackInfo.artist, trackInfo.album);
+            }
+        }
     } else {
         // No music playing
         elements.title.textContent = '-';
         elements.artist.textContent = '-';
         elements.album.textContent = '-';
+        if (elements.zone) elements.zone.textContent = '-';
         elements.albumImage.style.display = 'none';
         elements.noMusic.style.display = 'flex';
         elements.progressFill.style.width = '0%';
         elements.currentTime.textContent = '0:00';
         elements.totalTime.textContent = '0:00';
+        if (elements.trackActions) elements.trackActions.style.display = 'none';
     }
 }
 
@@ -110,6 +135,32 @@ function formatTime(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Get Spotify URL for current track
+async function getSpotifyUrl(title, artist, album) {
+    if (!title || !artist) return;
+
+    try {
+        const spotifyUrl = await ipcRenderer.invoke('spotify-search', title, artist, album);
+        if (spotifyUrl) {
+            // Update the current track with Spotify URL
+            const spotifyLink = document.getElementById('spotify-link');
+            if (spotifyLink) {
+                spotifyLink.style.display = 'inline-block';
+                spotifyLink.onclick = () => {
+                    require('electron').shell.openExternal(spotifyUrl);
+                };
+            }
+
+            // Update app state
+            AppState.currentTrack.spotifyUrl = spotifyUrl;
+            addLogEntry(`Found Spotify link for ${title}`, 'success');
+        }
+    } catch (error) {
+        console.error('Error getting Spotify URL:', error);
+        addLogEntry(`Failed to get Spotify link: ${error.message}`, 'error');
+    }
 }
 
 function addLogEntry(message, type = 'info') {
@@ -163,16 +214,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    document.getElementById('spotify-reconnect')?.addEventListener('click', () => {
+    document.getElementById('spotify-reconnect')?.addEventListener('click', async () => {
         updateConnectionStatus('spotify', 'connecting', 'Attempting to reconnect...');
         addLogEntry('Attempting to reconnect to Spotify...', 'info');
-        // TODO: Trigger Spotify reconnection
+
+        try {
+            const success = await ipcRenderer.invoke('spotify-connect');
+            if (success) {
+                addLogEntry('Spotify reconnection initiated', 'info');
+            } else {
+                addLogEntry('Spotify reconnection failed', 'error');
+                updateConnectionStatus('spotify', 'error', 'Reconnection failed');
+            }
+        } catch (error) {
+            addLogEntry(`Spotify reconnection error: ${error.message}`, 'error');
+            updateConnectionStatus('spotify', 'error', error.message);
+        }
     });
-    
-    document.getElementById('imgur-reconnect')?.addEventListener('click', () => {
+
+    document.getElementById('imgur-reconnect')?.addEventListener('click', async () => {
         updateConnectionStatus('imgur', 'connecting', 'Attempting to reconnect...');
         addLogEntry('Attempting to reconnect to Imgur...', 'info');
-        // TODO: Trigger Imgur reconnection
+
+        try {
+            const success = await ipcRenderer.invoke('imgur-connect');
+            if (success) {
+                addLogEntry('Imgur reconnection initiated', 'info');
+            } else {
+                addLogEntry('Imgur reconnection failed', 'error');
+                updateConnectionStatus('imgur', 'error', 'Reconnection failed');
+            }
+        } catch (error) {
+            addLogEntry(`Imgur reconnection error: ${error.message}`, 'error');
+            updateConnectionStatus('imgur', 'error', error.message);
+        }
     });
     
     document.getElementById('reconnect-all')?.addEventListener('click', async () => {
@@ -227,6 +302,29 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             addLogEntry(`Error setting test Discord activity: ${error.message}`, 'error');
+        }
+    });
+
+    // Refresh activity button
+    document.getElementById('refresh-activity')?.addEventListener('click', async () => {
+        const currentTrack = AppState.currentTrack;
+        if (currentTrack && currentTrack.title && currentTrack.title !== '-') {
+            addLogEntry('Refreshing Discord activity...', 'info');
+
+            try {
+                const success = await ipcRenderer.invoke('discord-set-activity', currentTrack);
+                if (success) {
+                    showNotification('Discord activity refreshed', 'success');
+                    addLogEntry('Discord activity refreshed successfully', 'success');
+                } else {
+                    addLogEntry('Failed to refresh Discord activity', 'error');
+                }
+            } catch (error) {
+                addLogEntry(`Error refreshing Discord activity: ${error.message}`, 'error');
+            }
+        } else {
+            showNotification('No track currently playing', 'warning');
+            addLogEntry('Cannot refresh activity - no track playing', 'warning');
         }
     });
     

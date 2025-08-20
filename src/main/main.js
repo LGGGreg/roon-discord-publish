@@ -6,6 +6,8 @@ const fs = require('fs');
 const ConfigManager = require('../core/ConfigManager');
 const DiscordService = require('../core/DiscordService');
 const RoonService = require('../core/RoonService');
+const SpotifyService = require('../core/SpotifyService');
+const ImgurService = require('../core/ImgurService');
 const Logger = require('../utils/Logger');
 
 // Keep a global reference of the window object
@@ -17,6 +19,8 @@ let isQuitting = false;
 let configManager;
 let discordService;
 let roonService;
+let spotifyService;
+let imgurService;
 let logger;
 
 // Enable live reload for development
@@ -203,6 +207,12 @@ function initializeServices() {
     // Initialize RoonService
     roonService = new RoonService(configManager);
 
+    // Initialize SpotifyService
+    spotifyService = new SpotifyService(configManager);
+
+    // Initialize ImgurService
+    imgurService = new ImgurService(configManager);
+
     // Set up logger GUI integration
     logger.on('log-entry', (logEntry) => {
         if (mainWindow) {
@@ -327,19 +337,40 @@ function initializeServices() {
 
         // Update Discord activity if Discord is connected
         if (discordService && discordService.isConnected() && trackInfo) {
-            discordService.setTrackActivity({
-                title: trackInfo.title,
-                artist: trackInfo.artist,
-                album: trackInfo.album,
-                zoneName: trackInfo.zoneName,
-                duration: trackInfo.duration,
-                position: trackInfo.position
-            }).then(success => {
-                if (success) {
-                    logger.info('Discord', 'Activity updated from Roon track change');
-                } else {
-                    logger.warn('Discord', 'Failed to update activity from Roon track change');
-                }
+            updateDiscordActivityWithEnhancements(trackInfo);
+        }
+    });
+
+    // Set up Spotify service events
+    spotifyService.on('state-changed', (event) => {
+        logger.info('Spotify', `State: ${event.oldState} -> ${event.newState}`, {
+            details: event.details,
+            error: event.error?.message
+        });
+
+        if (mainWindow) {
+            mainWindow.webContents.send('service-status-changed', {
+                service: 'spotify',
+                status: event.newState,
+                details: event.details,
+                error: event.error?.message
+            });
+        }
+    });
+
+    // Set up Imgur service events
+    imgurService.on('state-changed', (event) => {
+        logger.info('Imgur', `State: ${event.oldState} -> ${event.newState}`, {
+            details: event.details,
+            error: event.error?.message
+        });
+
+        if (mainWindow) {
+            mainWindow.webContents.send('service-status-changed', {
+                service: 'imgur',
+                status: event.newState,
+                details: event.details,
+                error: event.error?.message
             });
         }
     });
@@ -362,6 +393,111 @@ function initializeServices() {
             logger.warn('Roon', 'Initial connection failed, will retry automatically');
         }
     });
+
+    logger.info('System', 'Starting Spotify service...');
+    spotifyService.reconnect(true).then(success => {
+        if (success) {
+            logger.info('Spotify', 'Initial connection successful');
+        } else {
+            logger.warn('Spotify', 'Initial connection failed, will retry automatically');
+        }
+    });
+
+    logger.info('System', 'Starting Imgur service...');
+    imgurService.reconnect(true).then(success => {
+        if (success) {
+            logger.info('Imgur', 'Initial connection successful');
+        } else {
+            logger.warn('Imgur', 'Initial connection failed, will retry automatically');
+        }
+    });
+}
+
+/**
+ * Update Discord activity with Spotify and Imgur enhancements
+ */
+async function updateDiscordActivityWithEnhancements(trackInfo) {
+    try {
+        let spotifyUrl = '';
+        let largeImageUrl = '';
+        let smallImageUrl = '';
+
+        // Get Spotify URL if Spotify service is connected
+        if (spotifyService && spotifyService.isConnected() && trackInfo.title && trackInfo.artist) {
+            try {
+                spotifyUrl = await spotifyService.searchTrack(trackInfo.title, trackInfo.artist, trackInfo.album);
+                if (spotifyUrl) {
+                    logger.info('Spotify', `Found Spotify URL for ${trackInfo.title}`);
+                }
+            } catch (error) {
+                logger.warn('Spotify', `Failed to get Spotify URL: ${error.message}`);
+            }
+        }
+
+        // Get album art URLs if Imgur service is connected and we have image keys
+        if (imgurService && imgurService.isConnected() && roonService && roonService.roon) {
+            try {
+                const currentTrack = roonService.getCurrentTrack();
+                if (currentTrack && currentTrack.image_key) {
+                    const imageService = roonService.roon.services.RoonApiImage;
+                    if (imageService) {
+                        // Upload large image
+                        const largeImageResult = await imgurService.uploadRoonImage(imageService, currentTrack.image_key);
+                        if (largeImageResult && largeImageResult.url) {
+                            largeImageUrl = largeImageResult.url;
+                            logger.info('Imgur', `Uploaded large image for ${trackInfo.title}`);
+                        }
+
+                        // Use same image for small image (could be different in the future)
+                        smallImageUrl = largeImageUrl;
+                    }
+                }
+            } catch (error) {
+                logger.warn('Imgur', `Failed to upload album art: ${error.message}`);
+            }
+        }
+
+        // Set Discord activity with enhancements
+        const success = await discordService.setTrackActivity({
+            title: trackInfo.title,
+            artist: trackInfo.artist,
+            album: trackInfo.album,
+            zoneName: trackInfo.zoneName,
+            duration: trackInfo.duration,
+            position: trackInfo.position,
+            spotifyUrl: spotifyUrl,
+            largeImageUrl: largeImageUrl,
+            smallImageUrl: smallImageUrl
+        });
+
+        if (success) {
+            logger.info('Discord', 'Enhanced activity updated from Roon track change', {
+                hasSpotifyUrl: !!spotifyUrl,
+                hasLargeImage: !!largeImageUrl,
+                hasSmallImage: !!smallImageUrl
+            });
+        } else {
+            logger.warn('Discord', 'Failed to update enhanced activity from Roon track change');
+        }
+
+    } catch (error) {
+        logger.error('Discord', 'Error updating enhanced activity', error.message);
+
+        // Fallback to basic activity
+        try {
+            await discordService.setTrackActivity({
+                title: trackInfo.title,
+                artist: trackInfo.artist,
+                album: trackInfo.album,
+                zoneName: trackInfo.zoneName,
+                duration: trackInfo.duration,
+                position: trackInfo.position
+            });
+            logger.info('Discord', 'Fallback activity set successfully');
+        } catch (fallbackError) {
+            logger.error('Discord', 'Fallback activity also failed', fallbackError.message);
+        }
+    }
 }
 
 // App event handlers
@@ -526,6 +662,54 @@ ipcMain.handle('discord-clear-activity', async () => {
     return await discordService.clearActivity();
 });
 
+// Spotify service IPC handlers
+ipcMain.handle('spotify-connect', async () => {
+    if (!spotifyService) return false;
+    logger.info('Spotify', 'Manual connection requested');
+    return await spotifyService.reconnect(true);
+});
+
+ipcMain.handle('spotify-disconnect', async () => {
+    if (!spotifyService) return false;
+    logger.info('Spotify', 'Manual disconnection requested');
+    return await spotifyService.disconnect();
+});
+
+ipcMain.handle('spotify-status', () => {
+    if (!spotifyService) return null;
+    return spotifyService.getStats();
+});
+
+ipcMain.handle('spotify-search', async (event, title, artist, album) => {
+    if (!spotifyService) return '';
+    logger.info('Spotify', `Searching for: ${title} by ${artist}`);
+    return await spotifyService.searchTrack(title, artist, album);
+});
+
+// Imgur service IPC handlers
+ipcMain.handle('imgur-connect', async () => {
+    if (!imgurService) return false;
+    logger.info('Imgur', 'Manual connection requested');
+    return await imgurService.reconnect(true);
+});
+
+ipcMain.handle('imgur-disconnect', async () => {
+    if (!imgurService) return false;
+    logger.info('Imgur', 'Manual disconnection requested');
+    return await imgurService.disconnect();
+});
+
+ipcMain.handle('imgur-status', () => {
+    if (!imgurService) return null;
+    return imgurService.getStats();
+});
+
+ipcMain.handle('imgur-upload', async (event, imageData, imageKey) => {
+    if (!imgurService) return null;
+    logger.info('Imgur', `Uploading image: ${imageKey || 'unnamed'}`);
+    return await imgurService.uploadImage(imageData, imageKey);
+});
+
 // Roon service IPC handlers
 ipcMain.handle('roon-connect', async () => {
     if (!roonService) return false;
@@ -618,20 +802,27 @@ ipcMain.handle('request-service-status', () => {
             });
         }
 
-        // Send default status for services not yet implemented
-        mainWindow.webContents.send('service-status-changed', {
-            service: 'spotify',
-            status: 'disconnected',
-            details: 'Not connected to Spotify API',
-            error: null
-        });
+        if (spotifyService) {
+            const spotifyStats = spotifyService.getStats();
+            console.log('Sending Spotify status:', spotifyStats);
+            mainWindow.webContents.send('service-status-changed', {
+                service: 'spotify',
+                status: spotifyStats.state,
+                details: spotifyStats.details || 'Connecting to Spotify API...',
+                error: spotifyStats.lastError
+            });
+        }
 
-        mainWindow.webContents.send('service-status-changed', {
-            service: 'imgur',
-            status: 'disconnected',
-            details: 'Not connected to Imgur API',
-            error: null
-        });
+        if (imgurService) {
+            const imgurStats = imgurService.getStats();
+            console.log('Sending Imgur status:', imgurStats);
+            mainWindow.webContents.send('service-status-changed', {
+                service: 'imgur',
+                status: imgurStats.state,
+                details: imgurStats.details || 'Connecting to Imgur API...',
+                error: imgurStats.lastError
+            });
+        }
     }
 
     return true;
@@ -651,6 +842,14 @@ if (process.env.NODE_ENV === 'development') {
             status.roon = roonService.getStats();
         }
 
+        if (spotifyService) {
+            status.spotify = spotifyService.getStats();
+        }
+
+        if (imgurService) {
+            status.imgur = imgurService.getStats();
+        }
+
         return status;
     });
 
@@ -666,6 +865,16 @@ if (process.env.NODE_ENV === 'development') {
         if (service === 'roon' && roonService) {
             roonService.reconnect(true);
             return { success: true, message: `Roon reconnect triggered` };
+        }
+
+        if (service === 'spotify' && spotifyService) {
+            spotifyService.reconnect(true);
+            return { success: true, message: `Spotify reconnect triggered` };
+        }
+
+        if (service === 'imgur' && imgurService) {
+            imgurService.reconnect(true);
+            return { success: true, message: `Imgur reconnect triggered` };
         }
 
         return { success: false, message: `Unknown service: ${service}` };
