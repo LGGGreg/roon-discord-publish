@@ -2,10 +2,16 @@ const { app, BrowserWindow, Menu, Tray, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Import our core services
+const ConfigManager = require('../core/ConfigManager');
+
 // Keep a global reference of the window object
 let mainWindow;
 let tray = null;
 let isQuitting = false;
+
+// Initialize core services
+let configManager;
 
 // Enable live reload for development
 if (process.env.NODE_ENV === 'development') {
@@ -172,8 +178,37 @@ function createMenu() {
     Menu.setApplicationMenu(menu);
 }
 
+// Initialize services
+function initializeServices() {
+    // Initialize ConfigManager
+    configManager = new ConfigManager();
+
+    // Listen for config events
+    configManager.on('config-loaded', (config) => {
+        console.log('Configuration loaded');
+        if (mainWindow) {
+            mainWindow.webContents.send('config-loaded', config);
+        }
+    });
+
+    configManager.on('config-saved', (config) => {
+        console.log('Configuration saved');
+        if (mainWindow) {
+            mainWindow.webContents.send('config-saved', config);
+        }
+    });
+
+    configManager.on('config-error', (error) => {
+        console.error('Configuration error:', error);
+        if (mainWindow) {
+            mainWindow.webContents.send('config-error', error.message);
+        }
+    });
+}
+
 // App event handlers
 app.whenReady().then(() => {
+    initializeServices();
     createWindow();
     createTray();
     createMenu();
@@ -199,7 +234,67 @@ app.on('before-quit', () => {
     isQuitting = true;
 });
 
-// IPC handlers will be added here as we develop the app
+// Configuration IPC handlers
+ipcMain.handle('config-get-all', () => {
+    return configManager ? configManager.getAll() : {};
+});
+
+ipcMain.handle('config-get', (event, path, defaultValue) => {
+    return configManager ? configManager.get(path, defaultValue) : defaultValue;
+});
+
+ipcMain.handle('config-set', (event, path, value, save = false) => {
+    return configManager ? configManager.set(path, value, save) : false;
+});
+
+ipcMain.handle('config-save', (event, newConfig = null) => {
+    return configManager ? configManager.saveConfig(newConfig) : false;
+});
+
+ipcMain.handle('config-validate', () => {
+    return configManager ? configManager.validate() : { isValid: false, errors: ['ConfigManager not initialized'] };
+});
+
+ipcMain.handle('config-reset', (event, preserveRoonPairing = true) => {
+    return configManager ? configManager.reset(preserveRoonPairing) : false;
+});
+
+ipcMain.handle('config-export', (event, includeSecrets = false) => {
+    return configManager ? configManager.export(includeSecrets) : '{}';
+});
+
+ipcMain.handle('config-import', (event, jsonConfig, merge = true) => {
+    return configManager ? configManager.import(jsonConfig, merge) : false;
+});
+
+// File dialog handlers for import/export
+ipcMain.handle('show-save-dialog', async (event, options) => {
+    const result = await dialog.showSaveDialog(mainWindow, {
+        title: 'Export Configuration',
+        defaultPath: 'roon-discord-config.json',
+        filters: [
+            { name: 'JSON Files', extensions: ['json'] },
+            { name: 'All Files', extensions: ['*'] }
+        ],
+        ...options
+    });
+    return result;
+});
+
+ipcMain.handle('show-open-dialog', async (event, options) => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Import Configuration',
+        filters: [
+            { name: 'JSON Files', extensions: ['json'] },
+            { name: 'All Files', extensions: ['*'] }
+        ],
+        properties: ['openFile'],
+        ...options
+    });
+    return result;
+});
+
+// General IPC handlers
 ipcMain.handle('get-app-version', () => {
     return app.getVersion();
 });
@@ -222,4 +317,23 @@ ipcMain.handle('show-info-dialog', async (event, title, content) => {
         buttons: ['OK']
     });
     return result;
+});
+
+ipcMain.handle('write-file', async (event, filePath, content) => {
+    try {
+        fs.writeFileSync(filePath, content, 'utf8');
+        return true;
+    } catch (error) {
+        console.error('Error writing file:', error);
+        return false;
+    }
+});
+
+ipcMain.handle('read-file', async (event, filePath) => {
+    try {
+        return fs.readFileSync(filePath, 'utf8');
+    } catch (error) {
+        console.error('Error reading file:', error);
+        return null;
+    }
 });
