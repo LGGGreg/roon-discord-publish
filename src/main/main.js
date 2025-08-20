@@ -4,6 +4,8 @@ const fs = require('fs');
 
 // Import our core services
 const ConfigManager = require('../core/ConfigManager');
+const DiscordService = require('../core/DiscordService');
+const Logger = require('../utils/Logger');
 
 // Keep a global reference of the window object
 let mainWindow;
@@ -12,6 +14,8 @@ let isQuitting = false;
 
 // Initialize core services
 let configManager;
+let discordService;
+let logger;
 
 // Enable live reload for development
 if (process.env.NODE_ENV === 'development') {
@@ -180,28 +184,94 @@ function createMenu() {
 
 // Initialize services
 function initializeServices() {
+    // Initialize Logger
+    logger = new Logger({
+        level: process.env.NODE_ENV === 'development' ? Logger.LogLevel.DEBUG : Logger.LogLevel.INFO,
+        enableConsole: true,
+        enableFile: true,
+        enableGui: true
+    });
+
     // Initialize ConfigManager
     configManager = new ConfigManager();
 
+    // Initialize DiscordService
+    discordService = new DiscordService(configManager);
+
+    // Set up logger GUI integration
+    logger.on('log-entry', (logEntry) => {
+        if (mainWindow) {
+            mainWindow.webContents.send('log-entry', logEntry);
+        }
+    });
+
     // Listen for config events
     configManager.on('config-loaded', (config) => {
-        console.log('Configuration loaded');
+        logger.info('Config', 'Configuration loaded');
         if (mainWindow) {
             mainWindow.webContents.send('config-loaded', config);
         }
     });
 
     configManager.on('config-saved', (config) => {
-        console.log('Configuration saved');
+        logger.info('Config', 'Configuration saved');
         if (mainWindow) {
             mainWindow.webContents.send('config-saved', config);
         }
     });
 
     configManager.on('config-error', (error) => {
-        console.error('Configuration error:', error);
+        logger.error('Config', 'Configuration error', error.message);
         if (mainWindow) {
             mainWindow.webContents.send('config-error', error.message);
+        }
+    });
+
+    // Set up Discord service events
+    discordService.on('state-changed', (event) => {
+        logger.info('Discord', `State: ${event.oldState} -> ${event.newState}`, {
+            details: event.details,
+            error: event.error?.message
+        });
+
+        if (mainWindow) {
+            mainWindow.webContents.send('service-status-changed', {
+                service: 'discord',
+                status: event.newState,
+                details: event.details,
+                error: event.error?.message
+            });
+        }
+    });
+
+    discordService.on('discord-ready', (user) => {
+        logger.info('Discord', `Ready for user: ${user.username}#${user.discriminator}`, user);
+        if (mainWindow) {
+            mainWindow.webContents.send('discord-ready', user);
+        }
+    });
+
+    discordService.on('activity-set', (activity) => {
+        logger.info('Discord', 'Activity set', activity);
+        if (mainWindow) {
+            mainWindow.webContents.send('discord-activity-set', activity);
+        }
+    });
+
+    discordService.on('activity-error', (error) => {
+        logger.error('Discord', 'Activity error', error.message);
+        if (mainWindow) {
+            mainWindow.webContents.send('discord-activity-error', error.message);
+        }
+    });
+
+    // Start Discord connection
+    logger.info('System', 'Starting Discord service...');
+    discordService.reconnect(true).then(success => {
+        if (success) {
+            logger.info('Discord', 'Initial connection successful');
+        } else {
+            logger.warn('Discord', 'Initial connection failed, will retry automatically');
         }
     });
 }
@@ -336,4 +406,60 @@ ipcMain.handle('read-file', async (event, filePath) => {
         console.error('Error reading file:', error);
         return null;
     }
+});
+
+// Discord service IPC handlers
+ipcMain.handle('discord-connect', async () => {
+    if (!discordService) return false;
+    logger.info('Discord', 'Manual connection requested');
+    return await discordService.reconnect(true);
+});
+
+ipcMain.handle('discord-disconnect', async () => {
+    if (!discordService) return false;
+    logger.info('Discord', 'Manual disconnection requested');
+    return await discordService.disconnect();
+});
+
+ipcMain.handle('discord-status', () => {
+    if (!discordService) return null;
+    return discordService.getStats();
+});
+
+ipcMain.handle('discord-set-activity', async (event, trackInfo) => {
+    if (!discordService) return false;
+    logger.info('Discord', 'Setting activity from GUI', trackInfo);
+    return await discordService.setTrackActivity(trackInfo);
+});
+
+ipcMain.handle('discord-clear-activity', async () => {
+    if (!discordService) return false;
+    logger.info('Discord', 'Clearing activity from GUI');
+    return await discordService.clearActivity();
+});
+
+// Service management IPC handlers
+ipcMain.handle('service-reconnect-all', async () => {
+    logger.info('System', 'Reconnecting all services');
+    const results = {};
+
+    if (discordService) {
+        results.discord = await discordService.reconnect(true);
+    }
+
+    // TODO: Add other services when implemented
+
+    return results;
+});
+
+ipcMain.handle('service-get-all-status', () => {
+    const status = {};
+
+    if (discordService) {
+        status.discord = discordService.getStats();
+    }
+
+    // TODO: Add other services when implemented
+
+    return status;
 });

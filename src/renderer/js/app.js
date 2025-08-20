@@ -127,10 +127,22 @@ function addLogEntry(message, type = 'info') {
 // Event listeners for buttons
 document.addEventListener('DOMContentLoaded', () => {
     // Reconnect buttons
-    document.getElementById('discord-reconnect')?.addEventListener('click', () => {
+    document.getElementById('discord-reconnect')?.addEventListener('click', async () => {
         updateConnectionStatus('discord', 'connecting', 'Attempting to reconnect...');
         addLogEntry('Attempting to reconnect to Discord...', 'info');
-        // TODO: Trigger Discord reconnection
+
+        try {
+            const success = await ipcRenderer.invoke('discord-connect');
+            if (success) {
+                addLogEntry('Discord reconnection initiated', 'info');
+            } else {
+                addLogEntry('Discord reconnection failed', 'error');
+                updateConnectionStatus('discord', 'error', 'Reconnection failed');
+            }
+        } catch (error) {
+            addLogEntry(`Discord reconnection error: ${error.message}`, 'error');
+            updateConnectionStatus('discord', 'error', error.message);
+        }
     });
     
     document.getElementById('roon-reconnect')?.addEventListener('click', () => {
@@ -151,17 +163,59 @@ document.addEventListener('DOMContentLoaded', () => {
         // TODO: Trigger Imgur reconnection
     });
     
-    document.getElementById('reconnect-all')?.addEventListener('click', () => {
+    document.getElementById('reconnect-all')?.addEventListener('click', async () => {
         addLogEntry('Reconnecting all services...', 'info');
         showNotification('Reconnecting all services...', 'info');
-        // TODO: Trigger all reconnections
+
+        try {
+            const results = await ipcRenderer.invoke('service-reconnect-all');
+            addLogEntry(`Reconnection results: ${JSON.stringify(results)}`, 'info');
+        } catch (error) {
+            addLogEntry(`Reconnection error: ${error.message}`, 'error');
+        }
     });
-    
-    document.getElementById('clear-activity')?.addEventListener('click', () => {
+
+    document.getElementById('clear-activity')?.addEventListener('click', async () => {
         addLogEntry('Clearing Discord activity...', 'info');
-        showNotification('Discord activity cleared', 'success');
-        updateCurrentTrack({ title: '-', artist: '-', album: '-', albumArt: null });
-        // TODO: Clear Discord activity
+
+        try {
+            const success = await ipcRenderer.invoke('discord-clear-activity');
+            if (success) {
+                showNotification('Discord activity cleared', 'success');
+                updateCurrentTrack({ title: '-', artist: '-', album: '-', albumArt: null });
+                addLogEntry('Discord activity cleared successfully', 'success');
+            } else {
+                addLogEntry('Failed to clear Discord activity', 'error');
+            }
+        } catch (error) {
+            addLogEntry(`Error clearing Discord activity: ${error.message}`, 'error');
+        }
+    });
+
+    document.getElementById('test-activity')?.addEventListener('click', async () => {
+        addLogEntry('Setting test Discord activity...', 'info');
+
+        const testTrack = {
+            title: 'Test Song from GUI',
+            artist: 'Test Artist',
+            album: 'Test Album',
+            zoneName: 'GUI Test Zone',
+            duration: 180,
+            position: 30
+        };
+
+        try {
+            const success = await ipcRenderer.invoke('discord-set-activity', testTrack);
+            if (success) {
+                showNotification('Test activity set successfully', 'success');
+                updateCurrentTrack(testTrack);
+                addLogEntry('Test Discord activity set successfully', 'success');
+            } else {
+                addLogEntry('Failed to set test Discord activity', 'error');
+            }
+        } catch (error) {
+            addLogEntry(`Error setting test Discord activity: ${error.message}`, 'error');
+        }
     });
     
     // Log controls
@@ -193,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1500);
 });
 
-// IPC event listeners
+// IPC event listeners for menu actions
 ipcRenderer.on('reconnect-all', () => {
     document.getElementById('reconnect-all')?.click();
 });
@@ -211,6 +265,47 @@ ipcRenderer.on('show-settings', () => {
     const configTab = document.querySelector('[data-tab="config"]');
     if (configTab) {
         configTab.click();
+    }
+});
+
+// IPC event listeners for service events
+ipcRenderer.on('service-status-changed', (event, data) => {
+    console.log('Service status changed:', data);
+    updateConnectionStatus(data.service, data.status, data.details || '');
+    addLogEntry(`${data.service}: ${data.status}${data.details ? ` (${data.details})` : ''}`,
+                data.status === 'error' ? 'error' :
+                data.status === 'connected' ? 'success' : 'info');
+});
+
+ipcRenderer.on('discord-ready', (event, user) => {
+    console.log('Discord ready:', user);
+    updateConnectionStatus('discord', 'connected', `Connected as ${user.username}`);
+    addLogEntry(`Discord connected as ${user.username}#${user.discriminator}`, 'success');
+});
+
+ipcRenderer.on('discord-activity-set', (event, activity) => {
+    console.log('Discord activity set:', activity);
+    addLogEntry(`Discord activity set: ${activity.details}`, 'success');
+});
+
+ipcRenderer.on('discord-activity-error', (event, error) => {
+    console.log('Discord activity error:', error);
+    addLogEntry(`Discord activity error: ${error}`, 'error');
+});
+
+ipcRenderer.on('log-entry', (event, logEntry) => {
+    // Add log entry from main process
+    const logsContent = document.getElementById('logs-content');
+    if (logsContent) {
+        const logElement = document.createElement('p');
+        logElement.className = `log-entry ${logEntry.levelName.toLowerCase()}`;
+
+        const timeString = new Date(logEntry.timestamp).toLocaleTimeString();
+        const category = logEntry.category ? `[${logEntry.category}]` : '';
+        logElement.innerHTML = `<span class="timestamp">[${timeString}]</span> ${category} ${logEntry.message}`;
+
+        logsContent.appendChild(logElement);
+        logsContent.scrollTop = logsContent.scrollHeight;
     }
 });
 
