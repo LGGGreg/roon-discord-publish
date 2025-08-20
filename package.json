@@ -1,8 +1,9 @@
 {
   "name": "roon-discord-publish",
-  "version": "0.6.1",
-  "description": "Roon Extension for Discord Rich Presence",
-  "main": "roon-discord-publish.js",
+  "version": "0.7.0",
+  "description": "Roon Extension for Discord Rich Presence - GUI Edition",
+  "main": "src/main/main.js",
+  "homepage": "https://github.com/your-repo/roon-discord-publish",
   "scripts": {
     "start": "node start.js",
     "local": "node run-with-local-node.js",
@@ -10,7 +11,15 @@
     "direct": "node roon-discord-publish.js",
     "dev": "node roon-discord-publish.js",
     "check-node": "node --version",
-    "setup": "npm install && echo 'Please copy config.example.json to config.json and configure your settings'"
+    "setup": "npm install && echo 'Please copy config.example.json to config.json and configure your settings'",
+    "electron": "electron .",
+    "electron-dev": "NODE_ENV=development electron .",
+    "build": "electron-builder",
+    "build-win": "electron-builder --win",
+    "build-mac": "electron-builder --mac",
+    "build-linux": "electron-builder --linux",
+    "pack": "electron-builder --dir",
+    "dist": "npm run build"
   },
   "engines": {
     "node": ">=16.13.2 <17.0.0",
@@ -28,5 +37,34 @@
     "node-roon-api-image": "github:RoonLabs/node-roon-api-image",
     "node-roon-api-transport": "github:roonlabs/node-roon-api-transport",
     "spotify-web-api-node": "^5.0.2"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.echofox.roon-discord-publish",
+    "productName": "Roon Discord Rich Presence",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "config.example.json",
+      "node_modules/**/*",
+      "!node_modules/.cache/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    }
   }
 }

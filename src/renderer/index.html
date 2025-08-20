@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roon Discord Rich Presence</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Navigation -->
+        <nav class="nav-bar">
+            <div class="nav-brand">
+                <img src="../../assets/icon.png" alt="Roon Discord" class="nav-logo">
+                <h1>Roon Discord Rich Presence</h1>
+            </div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-tab="status">Status</button>
+                <button class="nav-tab" data-tab="config">Configuration</button>
+                <button class="nav-tab" data-tab="logs">Logs</button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Status Tab -->
+            <div id="status-tab" class="tab-content active">
+                <div class="status-grid">
+                    <!-- Connection Status Cards -->
+                    <div class="status-card">
+                        <div class="status-header">
+                            <h3>Discord</h3>
+                            <div class="status-indicator" id="discord-status">
+                                <span class="status-dot disconnected"></span>
+                                <span class="status-text">Disconnected</span>
+                            </div>
+                        </div>
+                        <div class="status-details">
+                            <p id="discord-details">Not connected to Discord</p>
+                            <button class="btn btn-small" id="discord-reconnect">Reconnect</button>
+                        </div>
+                    </div>
+
+                    <div class="status-card">
+                        <div class="status-header">
+                            <h3>Roon</h3>
+                            <div class="status-indicator" id="roon-status">
+                                <span class="status-dot disconnected"></span>
+                                <span class="status-text">Disconnected</span>
+                            </div>
+                        </div>
+                        <div class="status-details">
+                            <p id="roon-details">Not connected to Roon</p>
+                            <button class="btn btn-small" id="roon-reconnect">Reconnect</button>
+                        </div>
+                    </div>
+
+                    <div class="status-card">
+                        <div class="status-header">
+                            <h3>Spotify</h3>
+                            <div class="status-indicator" id="spotify-status">
+                                <span class="status-dot disconnected"></span>
+                                <span class="status-text">Disconnected</span>
+                            </div>
+                        </div>
+                        <div class="status-details">
+                            <p id="spotify-details">Not connected to Spotify API</p>
+                            <button class="btn btn-small" id="spotify-reconnect">Reconnect</button>
+                        </div>
+                    </div>
+
+                    <div class="status-card">
+                        <div class="status-header">
+                            <h3>Imgur</h3>
+                            <div class="status-indicator" id="imgur-status">
+                                <span class="status-dot disconnected"></span>
+                                <span class="status-text">Disconnected</span>
+                            </div>
+                        </div>
+                        <div class="status-details">
+                            <p id="imgur-details">Not connected to Imgur API</p>
+                            <button class="btn btn-small" id="imgur-reconnect">Reconnect</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Currently Playing Section -->
+                <div class="now-playing-section">
+                    <h2>Currently Playing</h2>
+                    <div class="now-playing-card" id="now-playing">
+                        <div class="album-art">
+                            <img id="album-image" src="" alt="Album Art" style="display: none;">
+                            <div class="no-music" id="no-music">
+                                <span>♪</span>
+                                <p>No music playing</p>
+                            </div>
+                        </div>
+                        <div class="track-info">
+                            <h3 id="track-title">-</h3>
+                            <p id="track-artist">-</p>
+                            <p id="track-album">-</p>
+                            <div class="track-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="progress-fill"></div>
+                                </div>
+                                <div class="time-info">
+                                    <span id="current-time">0:00</span>
+                                    <span id="total-time">0:00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <button class="btn btn-primary" id="reconnect-all">Reconnect All</button>
+                    <button class="btn btn-secondary" id="clear-activity">Clear Discord Activity</button>
+                </div>
+            </div>
+
+            <!-- Configuration Tab -->
+            <div id="config-tab" class="tab-content">
+                <div class="config-section">
+                    <h2>API Configuration</h2>
+                    <p class="config-description">Configure your API keys and settings below. All settings are saved automatically.</p>
+                    
+                    <!-- Discord Configuration -->
+                    <div class="config-group">
+                        <h3>Discord</h3>
+                        <div class="form-group">
+                            <label for="discord-client-id">Client ID</label>
+                            <input type="text" id="discord-client-id" placeholder="Enter Discord Application Client ID">
+                            <button class="btn btn-small test-btn" id="test-discord">Test Connection</button>
+                        </div>
+                        <p class="help-text">
+                            Get your Discord Client ID from the 
+                            <a href="#" onclick="require('electron').shell.openExternal('https://discord.com/developers/applications')">Discord Developer Portal</a>
+                        </p>
+                    </div>
+
+                    <!-- Spotify Configuration -->
+                    <div class="config-group">
+                        <h3>Spotify</h3>
+                        <div class="form-group">
+                            <label for="spotify-client-id">Client ID</label>
+                            <input type="text" id="spotify-client-id" placeholder="Enter Spotify Client ID">
+                        </div>
+                        <div class="form-group">
+                            <label for="spotify-client-secret">Client Secret</label>
+                            <input type="password" id="spotify-client-secret" placeholder="Enter Spotify Client Secret">
+                            <button class="btn btn-small test-btn" id="test-spotify">Test Connection</button>
+                        </div>
+                        <p class="help-text">
+                            Get your Spotify credentials from the 
+                            <a href="#" onclick="require('electron').shell.openExternal('https://developer.spotify.com/dashboard')">Spotify Developer Dashboard</a>
+                        </p>
+                    </div>
+
+                    <!-- Imgur Configuration -->
+                    <div class="config-group">
+                        <h3>Imgur</h3>
+                        <div class="form-group">
+                            <label for="imgur-client-id">Client ID</label>
+                            <input type="text" id="imgur-client-id" placeholder="Enter Imgur Client ID">
+                            <button class="btn btn-small test-btn" id="test-imgur">Test Connection</button>
+                        </div>
+                        <p class="help-text">
+                            Get your Imgur Client ID from 
+                            <a href="#" onclick="require('electron').shell.openExternal('https://api.imgur.com/oauth2/addclient')">Imgur API Registration</a>
+                        </p>
+                    </div>
+
+                    <!-- Roon Configuration -->
+                    <div class="config-group">
+                        <h3>Roon</h3>
+                        <div class="form-group">
+                            <label for="roon-core-ip">Core IP (Optional)</label>
+                            <input type="text" id="roon-core-ip" placeholder="Leave empty for auto-discovery">
+                        </div>
+                        <div class="form-group">
+                            <label for="roon-zone-id">Zone ID (Optional)</label>
+                            <input type="text" id="roon-zone-id" placeholder="Leave empty for auto-selection">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="roon-use-discovery" checked>
+                                Use auto-discovery
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- App Settings -->
+                    <div class="config-group">
+                        <h3>Application Settings</h3>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="app-auto-start">
+                                Start with system
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="app-minimize-to-tray" checked>
+                                Minimize to system tray
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="app-auto-shutdown">
+                                Auto-shutdown after 30 minutes
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Configuration Actions -->
+                    <div class="config-actions">
+                        <button class="btn btn-primary" id="save-config">Save Configuration</button>
+                        <button class="btn btn-secondary" id="reset-config">Reset to Defaults</button>
+                        <button class="btn btn-secondary" id="export-config">Export Config</button>
+                        <button class="btn btn-secondary" id="import-config">Import Config</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs Tab -->
+            <div id="logs-tab" class="tab-content">
+                <div class="logs-section">
+                    <div class="logs-header">
+                        <h2>Application Logs</h2>
+                        <div class="logs-controls">
+                            <button class="btn btn-small" id="clear-logs">Clear Logs</button>
+                            <button class="btn btn-small" id="export-logs">Export Logs</button>
+                        </div>
+                    </div>
+                    <div class="logs-container">
+                        <div id="logs-content" class="logs-content">
+                            <p class="log-entry info">Application started</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/app.js"></script>
+    <script src="js/tabs.js"></script>
+    <script src="js/status.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/logs.js"></script>
+</body>
+</html>
