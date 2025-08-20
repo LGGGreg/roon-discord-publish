@@ -2,14 +2,27 @@
   "name": "roon-discord-publish",
   "version": "0.6.1",
   "description": "Roon Extension for Discord Rich Presence",
-  "main": "roon-discord-rp.js",
+  "main": "roon-discord-publish.js",
+  "scripts": {
+    "start": "node start.js",
+    "local": "node run-with-local-node.js",
+    "setup-local-node": "node setup-local-node.js",
+    "direct": "node roon-discord-publish.js",
+    "dev": "node roon-discord-publish.js",
+    "check-node": "node --version",
+    "setup": "npm install && echo 'Please copy config.example.json to config.json and configure your settings'"
+  },
+  "engines": {
+    "node": ">=16.13.2 <17.0.0",
+    "npm": ">=8.0.0"
+  },
   "author": "615283 (James Conway), synapses, jaredallard",
   "license": "Apache-2.0",
   "dependencies": {
     "discord-rpc": "^4.0.1",
     "fs": "^0.0.1-security",
     "fsa": "^0.5.1",
-    "imgur-anonymous-uploader": "^1.1.5",
+    "imgur-anonymous-uploader": "^1.1.6",
     "imgur-node-api": "^0.1.0",
     "node-roon-api": "github:roonlabs/node-roon-api",
     "node-roon-api-image": "github:RoonLabs/node-roon-api-image",
