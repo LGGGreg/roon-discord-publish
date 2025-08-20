@@ -3,3 +3,10 @@ node_modules
 config.json
 
 image.tmp
+
+# Local Node.js installation
+local-node/
+
+*.tmp
+
+.idea/
