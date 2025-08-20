@@ -103,6 +103,43 @@ class TestController {
     }
 
     /**
+     * Get current track from Roon
+     */
+    async getCurrentTrack() {
+        if (!this.page) {
+            throw new Error('App not launched. Call launch() first.');
+        }
+
+        const track = await this.page.evaluate(async () => {
+            const { ipcRenderer } = require('electron');
+            return await ipcRenderer.invoke('roon-get-current-track');
+        });
+
+        return track;
+    }
+
+    /**
+     * Set Discord activity with track info
+     */
+    async setDiscordActivity(trackInfo) {
+        if (!this.page) {
+            throw new Error('App not launched. Call launch() first.');
+        }
+
+        const result = await this.page.evaluate(async (track) => {
+            const { ipcRenderer } = require('electron');
+            try {
+                return await ipcRenderer.invoke('discord-set-activity', track);
+            } catch (error) {
+                console.error('Discord activity error:', error);
+                return false;
+            }
+        }, trackInfo);
+
+        return result;
+    }
+
+    /**
      * Get service status from GUI elements
      */
     async getGUIStatus() {

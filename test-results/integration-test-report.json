@@ -1,0 +1,53 @@
+{
+  "timestamp": "2025-08-20T04:47:59.304Z",
+  "tests": [
+    {
+      "name": "Service Connectivity",
+      "passed": true,
+      "message": "All required services connected. 2/2 optional services available.",
+      "isWarning": false,
+      "timestamp": "2025-08-20T04:48:04.686Z"
+    },
+    {
+      "name": "Complete Workflow",
+      "passed": false,
+      "message": "Discord activity failed",
+      "isWarning": false,
+      "timestamp": "2025-08-20T04:48:04.713Z"
+    },
+    {
+      "name": "Album Art Pipeline",
+      "passed": true,
+      "message": "Album art pipeline fully functional",
+      "isWarning": false,
+      "timestamp": "2025-08-20T04:48:06.771Z"
+    },
+    {
+      "name": "Performance Integration",
+      "passed": true,
+      "message": "StatusMonitor and metrics working",
+      "isWarning": false,
+      "timestamp": "2025-08-20T04:48:06.973Z"
+    },
+    {
+      "name": "Configuration Integration",
+      "passed": true,
+      "message": "Configuration system working",
+      "isWarning": false,
+      "timestamp": "2025-08-20T04:48:07.183Z"
+    },
+    {
+      "name": "Service Resilience",
+      "passed": true,
+      "message": "3/3 services successfully tested for reconnection",
+      "isWarning": false,
+      "timestamp": "2025-08-20T04:48:13.586Z"
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "passed": 5,
+    "failed": 1,
+    "warnings": 0
+  }
+}
