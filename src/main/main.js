@@ -9,6 +9,7 @@ const RoonService = require('../core/RoonService');
 const SpotifyService = require('../core/SpotifyService');
 const ImgurService = require('../core/ImgurService');
 const StatusMonitor = require('../core/StatusMonitor');
+const DebugManager = require('../core/DebugManager');
 const Logger = require('../utils/Logger');
 
 // Keep a global reference of the window object
@@ -23,6 +24,7 @@ let roonService;
 let spotifyService;
 let imgurService;
 let statusMonitor;
+let debugManager;
 let logger;
 
 // Enable live reload for development
@@ -217,6 +219,18 @@ function initializeServices() {
 
     // Initialize StatusMonitor
     statusMonitor = new StatusMonitor(logger);
+
+    // Initialize DebugManager
+    debugManager = new DebugManager(logger);
+
+    // Enable debug mode in development
+    if (process.env.NODE_ENV === 'development') {
+        debugManager.enableDebugMode({
+            enableVerboseLogging: true,
+            enablePerformanceTracking: true,
+            enableNetworkDiagnostics: true
+        });
+    }
 
     // Register all services with the status monitor
     statusMonitor.registerService('discord', discordService);
@@ -424,6 +438,40 @@ function initializeServices() {
     statusMonitor.on('health-check-completed', (overallStatus) => {
         if (mainWindow) {
             mainWindow.webContents.send('health-check-completed', overallStatus);
+        }
+    });
+
+    // Set up DebugManager events
+    debugManager.on('debug-mode-enabled', (config) => {
+        logger.info('DebugManager', 'Debug mode enabled', config);
+        if (mainWindow) {
+            mainWindow.webContents.send('debug-mode-changed', { enabled: true, config });
+        }
+    });
+
+    debugManager.on('debug-mode-disabled', (info) => {
+        logger.info('DebugManager', 'Debug mode disabled', info);
+        if (mainWindow) {
+            mainWindow.webContents.send('debug-mode-changed', { enabled: false, info });
+        }
+    });
+
+    debugManager.on('performance-marker-completed', (performance) => {
+        if (mainWindow) {
+            mainWindow.webContents.send('debug-performance-marker', performance);
+        }
+    });
+
+    debugManager.on('error-diagnostics-added', (errorDiagnostic) => {
+        if (mainWindow) {
+            mainWindow.webContents.send('debug-error-added', errorDiagnostic);
+        }
+    });
+
+    debugManager.on('diagnostic-report-generated', (reportInfo) => {
+        logger.info('DebugManager', 'Diagnostic report generated', reportInfo.path);
+        if (mainWindow) {
+            mainWindow.webContents.send('debug-report-generated', reportInfo);
         }
     });
 
@@ -919,6 +967,56 @@ ipcMain.handle('status-monitor-stop', () => {
     if (!statusMonitor) return false;
     statusMonitor.stopMonitoring();
     return true;
+});
+
+// Debug Manager IPC handlers
+ipcMain.handle('debug-toggle-mode', (event, options) => {
+    if (!debugManager) return false;
+    return debugManager.toggleDebugMode(options);
+});
+
+ipcMain.handle('debug-enable-mode', (event, options) => {
+    if (!debugManager) return false;
+    debugManager.enableDebugMode(options);
+    return true;
+});
+
+ipcMain.handle('debug-disable-mode', () => {
+    if (!debugManager) return false;
+    debugManager.disableDebugMode();
+    return true;
+});
+
+ipcMain.handle('debug-get-summary', () => {
+    if (!debugManager) return null;
+    return debugManager.getDiagnosticsSummary();
+});
+
+ipcMain.handle('debug-generate-report', (event, includeSystemInfo, includePerformance) => {
+    if (!debugManager) return null;
+    return debugManager.generateDiagnosticReport(includeSystemInfo, includePerformance);
+});
+
+ipcMain.handle('debug-run-connection-diagnostics', (event, serviceName, connectionInfo) => {
+    if (!debugManager) return null;
+    return debugManager.runConnectionDiagnostics(serviceName, connectionInfo);
+});
+
+ipcMain.handle('debug-clear-diagnostics', () => {
+    if (!debugManager) return false;
+    debugManager.clearDiagnostics();
+    return true;
+});
+
+ipcMain.handle('debug-start-performance-marker', (event, name) => {
+    if (!debugManager) return false;
+    debugManager.startPerformanceMarker(name);
+    return true;
+});
+
+ipcMain.handle('debug-end-performance-marker', (event, name) => {
+    if (!debugManager) return null;
+    return debugManager.endPerformanceMarker(name);
 });
 
 // Request service status (for initial load)

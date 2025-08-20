@@ -27,6 +27,8 @@
     "test:workflow": "playwright test test/e2e/workflow.test.js",
     "test:integration-e2e": "playwright test test/e2e/integration.test.js",
     "test:all": "npm run test:integration && npm run test:workflow",
+    "debug:diagnostics": "node test/cli/debug-diagnostics.js",
+    "debug:verbose": "NODE_ENV=development npm run electron-dev",
     "test:interactive": "node test/cli/interactive.js",
     "test:report": "playwright show-report test-results/html-report",
     "pack": "electron-builder --dir",

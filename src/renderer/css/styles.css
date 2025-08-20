@@ -349,21 +349,75 @@ body {
         gap: 1rem;
         padding: 1rem;
     }
-    
+
     .main-content {
         padding: 1rem;
     }
-    
+
     .status-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .now-playing-card {
         flex-direction: column;
         text-align: center;
     }
-    
+
     .quick-actions {
         flex-direction: column;
     }
+}
+
+/* Debug controls styles */
+.debug-controls {
+    background: var(--bg-secondary);
+    border: 2px dashed #6b7280;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.debug-controls h3 {
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.debug-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.debug-status {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.debug-indicator {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.debug-indicator.debug-on {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+    border: 1px solid #22c55e;
+}
+
+.debug-indicator.debug-off {
+    background: rgba(156, 163, 175, 0.2);
+    color: #9ca3af;
+    border: 1px solid #9ca3af;
+}
+
+.debug-info {
+    color: var(--text-secondary);
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
 }

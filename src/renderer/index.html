@@ -128,6 +128,20 @@
                     <button class="btn btn-secondary" id="clear-activity" data-testid="clear-activity">Clear Discord Activity</button>
                     <button class="btn btn-secondary" id="test-activity" data-testid="test-activity">Test Discord Activity</button>
                 </div>
+
+                <!-- Debug Controls (Development Only) -->
+                <div class="debug-controls" id="debug-controls" style="display: none;">
+                    <h3>🐛 Debug Controls</h3>
+                    <div class="debug-buttons">
+                        <button class="btn btn-small" id="toggle-debug-mode">Toggle Debug Mode</button>
+                        <button class="btn btn-small" id="generate-diagnostic-report">Generate Report</button>
+                        <button class="btn btn-small" id="clear-diagnostics">Clear Diagnostics</button>
+                    </div>
+                    <div class="debug-status">
+                        <span class="debug-indicator" id="debug-mode-indicator">Debug: OFF</span>
+                        <span class="debug-info" id="debug-info"></span>
+                    </div>
+                </div>
             </div>
 
             <!-- Configuration Tab -->
@@ -260,5 +274,6 @@
     <script src="js/status.js"></script>
     <script src="js/config.js"></script>
     <script src="js/logs.js"></script>
+    <script src="js/debug.js"></script>
 </body>
 </html>
