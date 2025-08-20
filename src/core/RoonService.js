@@ -292,6 +292,16 @@ class RoonService extends ConnectionManager {
             console.log(`Selected zone: ${this.currentZone.display_name} (${this.currentZone.zone_id})`);
             this.updateQueueSubscription();
             this.emit('zone-selected', this.currentZone);
+
+            // Check if zone has now_playing information and emit track change
+            if (this.currentZone.now_playing) {
+                const trackInfo = this.extractTrackInfo(this.currentZone);
+                if (trackInfo) {
+                    this.currentTrack = trackInfo;
+                    this.emit('track-changed', trackInfo);
+                    console.log(`Now playing from zone: ${trackInfo.title} - ${trackInfo.artist}`);
+                }
+            }
         }
     }
     
@@ -411,7 +421,36 @@ class RoonService extends ConnectionManager {
         this.currentZone = null;
         this.currentTrack = null;
     }
-    
+
+    /**
+     * Extract track information from zone data
+     */
+    extractTrackInfo(zone) {
+        if (!zone || !zone.now_playing) return null;
+
+        const nowPlaying = zone.now_playing;
+        const threeLine = nowPlaying.three_line || {};
+        const twoLine = nowPlaying.two_line || {};
+
+        console.log('extractTrackInfo: nowPlaying.image_key =', nowPlaying.image_key);
+
+        const trackInfo = {
+            title: threeLine.line1 || twoLine.line1 || 'Unknown Track',
+            artist: threeLine.line2 || twoLine.line2 || 'Unknown Artist',
+            album: threeLine.line3 || 'Unknown Album',
+            zoneName: zone.display_name || 'Unknown Zone',
+            duration: nowPlaying.length || 0,
+            position: nowPlaying.seek_position || 0,
+            progress: nowPlaying.seek_position || 0,
+            state: zone.state || 'unknown',
+            image_key: nowPlaying.image_key || null,
+            albumArt: null // Will be set later if needed
+        };
+
+        console.log('extractTrackInfo: final trackInfo.image_key =', trackInfo.image_key);
+        return trackInfo;
+    }
+
     /**
      * Get service-specific stats
      * @returns {Object} Roon service stats
