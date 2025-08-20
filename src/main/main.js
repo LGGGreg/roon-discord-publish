@@ -27,7 +27,7 @@ function createWindow() {
             contextIsolation: false,
             enableRemoteModule: true
         },
-        icon: path.join(__dirname, '../../assets/icon.png'),
+        icon: path.join(__dirname, '../../assets/icon.svg'),
         show: false, // Don't show until ready
         titleBarStyle: 'default'
     });
@@ -50,86 +50,36 @@ function createWindow() {
         mainWindow = null;
     });
 
-    // Handle minimize to tray
+    // Handle minimize to tray (disabled for now)
     mainWindow.on('minimize', (event) => {
-        if (tray) {
-            event.preventDefault();
-            mainWindow.hide();
-        }
+        // Tray functionality will be implemented later
+        // For now, just minimize normally
     });
 
-    // Handle close to tray (don't quit)
+    // Handle close (quit app for now, will change when tray is implemented)
     mainWindow.on('close', (event) => {
-        if (!isQuitting && tray) {
-            event.preventDefault();
-            mainWindow.hide();
-            return false;
-        }
+        // For now, just quit the app
+        // Later we'll implement minimize to tray
     });
 }
 
 function createTray() {
-    // Create tray icon
-    const trayIconPath = path.join(__dirname, '../../assets/tray-icon.png');
-    
-    // Use a default icon if custom icon doesn't exist
-    const iconPath = fs.existsSync(trayIconPath) 
-        ? trayIconPath 
-        : path.join(__dirname, '../../assets/icon.png');
-    
-    tray = new Tray(iconPath);
-    
-    const contextMenu = Menu.buildFromTemplate([
-        {
-            label: 'Show App',
-            click: () => {
-                if (mainWindow) {
-                    mainWindow.show();
-                    mainWindow.focus();
-                }
-            }
-        },
-        {
-            label: 'Hide App',
-            click: () => {
-                if (mainWindow) {
-                    mainWindow.hide();
-                }
-            }
-        },
-        { type: 'separator' },
-        {
-            label: 'Reconnect All',
-            click: () => {
-                if (mainWindow) {
-                    mainWindow.webContents.send('reconnect-all');
-                }
-            }
-        },
-        { type: 'separator' },
-        {
-            label: 'Quit',
-            click: () => {
-                isQuitting = true;
-                app.quit();
-            }
+    // Create tray icon - use a simple built-in icon for now
+    // We'll create a proper icon later
+    try {
+        // Try to create tray with a simple icon
+        const iconPath = path.join(__dirname, '../../assets/icon.svg');
+
+        // For now, let's skip the tray if we can't create it
+        if (fs.existsSync(iconPath)) {
+            // SVG not supported for tray, skip for now
+            console.log('Tray icon creation skipped - will implement proper PNG icon later');
+            return;
         }
-    ]);
-    
-    tray.setToolTip('Roon Discord Rich Presence');
-    tray.setContextMenu(contextMenu);
-    
-    // Double click to show/hide
-    tray.on('double-click', () => {
-        if (mainWindow) {
-            if (mainWindow.isVisible()) {
-                mainWindow.hide();
-            } else {
-                mainWindow.show();
-                mainWindow.focus();
-            }
-        }
-    });
+    } catch (error) {
+        console.log('Tray creation failed:', error.message);
+        return;
+    }
 }
 
 function createMenu() {
