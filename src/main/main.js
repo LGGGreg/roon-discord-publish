@@ -5,6 +5,7 @@ const fs = require('fs');
 // Import our core services
 const ConfigManager = require('../core/ConfigManager');
 const DiscordService = require('../core/DiscordService');
+const RoonService = require('../core/RoonService');
 const Logger = require('../utils/Logger');
 
 // Keep a global reference of the window object
@@ -15,6 +16,7 @@ let isQuitting = false;
 // Initialize core services
 let configManager;
 let discordService;
+let roonService;
 let logger;
 
 // Enable live reload for development
@@ -198,6 +200,9 @@ function initializeServices() {
     // Initialize DiscordService
     discordService = new DiscordService(configManager);
 
+    // Initialize RoonService
+    roonService = new RoonService(configManager);
+
     // Set up logger GUI integration
     logger.on('log-entry', (logEntry) => {
         if (mainWindow) {
@@ -265,13 +270,87 @@ function initializeServices() {
         }
     });
 
-    // Start Discord connection
+    // Set up Roon service events
+    roonService.on('state-changed', (event) => {
+        logger.info('Roon', `State: ${event.oldState} -> ${event.newState}`, {
+            details: event.details,
+            error: event.error?.message
+        });
+
+        if (mainWindow) {
+            mainWindow.webContents.send('service-status-changed', {
+                service: 'roon',
+                status: event.newState,
+                details: event.details,
+                error: event.error?.message
+            });
+        }
+    });
+
+    roonService.on('core-paired', (core) => {
+        logger.info('Roon', `Core paired: ${core.display_name}`, core);
+        if (mainWindow) {
+            mainWindow.webContents.send('roon-core-paired', core);
+        }
+    });
+
+    roonService.on('zones-updated', (zones) => {
+        logger.info('Roon', `Zones updated: ${zones.length} zones available`);
+        if (mainWindow) {
+            mainWindow.webContents.send('roon-zones-updated', zones);
+        }
+    });
+
+    roonService.on('zone-selected', (zone) => {
+        logger.info('Roon', `Zone selected: ${zone.display_name}`);
+        if (mainWindow) {
+            mainWindow.webContents.send('roon-zone-selected', zone);
+        }
+    });
+
+    roonService.on('track-changed', (track) => {
+        const trackInfo = roonService.getCurrentTrack();
+        logger.info('Roon', `Track changed: ${trackInfo?.title || 'Unknown'}`, trackInfo);
+
+        if (mainWindow) {
+            mainWindow.webContents.send('roon-track-changed', trackInfo);
+        }
+
+        // Update Discord activity if Discord is connected
+        if (discordService && discordService.isConnected() && trackInfo) {
+            discordService.setTrackActivity({
+                title: trackInfo.title,
+                artist: trackInfo.artist,
+                album: trackInfo.album,
+                zoneName: trackInfo.zoneName,
+                duration: trackInfo.duration,
+                position: trackInfo.position
+            }).then(success => {
+                if (success) {
+                    logger.info('Discord', 'Activity updated from Roon track change');
+                } else {
+                    logger.warn('Discord', 'Failed to update activity from Roon track change');
+                }
+            });
+        }
+    });
+
+    // Start services
     logger.info('System', 'Starting Discord service...');
     discordService.reconnect(true).then(success => {
         if (success) {
             logger.info('Discord', 'Initial connection successful');
         } else {
             logger.warn('Discord', 'Initial connection failed, will retry automatically');
+        }
+    });
+
+    logger.info('System', 'Starting Roon service...');
+    roonService.reconnect(true).then(success => {
+        if (success) {
+            logger.info('Roon', 'Initial connection successful');
+        } else {
+            logger.warn('Roon', 'Initial connection failed, will retry automatically');
         }
     });
 }
@@ -438,6 +517,40 @@ ipcMain.handle('discord-clear-activity', async () => {
     return await discordService.clearActivity();
 });
 
+// Roon service IPC handlers
+ipcMain.handle('roon-connect', async () => {
+    if (!roonService) return false;
+    logger.info('Roon', 'Manual connection requested');
+    return await roonService.reconnect(true);
+});
+
+ipcMain.handle('roon-disconnect', async () => {
+    if (!roonService) return false;
+    logger.info('Roon', 'Manual disconnection requested');
+    return await roonService.disconnect();
+});
+
+ipcMain.handle('roon-status', () => {
+    if (!roonService) return null;
+    return roonService.getStats();
+});
+
+ipcMain.handle('roon-get-zones', () => {
+    if (!roonService) return [];
+    return roonService.getZones();
+});
+
+ipcMain.handle('roon-set-zone', async (event, zoneId) => {
+    if (!roonService) return false;
+    logger.info('Roon', `Setting zone to: ${zoneId}`);
+    return roonService.setCurrentZone(zoneId);
+});
+
+ipcMain.handle('roon-get-current-track', () => {
+    if (!roonService) return null;
+    return roonService.getCurrentTrack();
+});
+
 // Service management IPC handlers
 ipcMain.handle('service-reconnect-all', async () => {
     logger.info('System', 'Reconnecting all services');
@@ -447,7 +560,9 @@ ipcMain.handle('service-reconnect-all', async () => {
         results.discord = await discordService.reconnect(true);
     }
 
-    // TODO: Add other services when implemented
+    if (roonService) {
+        results.roon = await roonService.reconnect(true);
+    }
 
     return results;
 });
@@ -459,7 +574,9 @@ ipcMain.handle('service-get-all-status', () => {
         status.discord = discordService.getStats();
     }
 
-    // TODO: Add other services when implemented
+    if (roonService) {
+        status.roon = roonService.getStats();
+    }
 
     return status;
 });

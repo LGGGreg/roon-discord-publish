@@ -145,10 +145,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    document.getElementById('roon-reconnect')?.addEventListener('click', () => {
+    document.getElementById('roon-reconnect')?.addEventListener('click', async () => {
         updateConnectionStatus('roon', 'connecting', 'Attempting to reconnect...');
         addLogEntry('Attempting to reconnect to Roon...', 'info');
-        // TODO: Trigger Roon reconnection
+
+        try {
+            const success = await ipcRenderer.invoke('roon-connect');
+            if (success) {
+                addLogEntry('Roon reconnection initiated', 'info');
+            } else {
+                addLogEntry('Roon reconnection failed', 'error');
+                updateConnectionStatus('roon', 'error', 'Reconnection failed');
+            }
+        } catch (error) {
+            addLogEntry(`Roon reconnection error: ${error.message}`, 'error');
+            updateConnectionStatus('roon', 'error', error.message);
+        }
     });
     
     document.getElementById('spotify-reconnect')?.addEventListener('click', () => {
@@ -306,6 +318,40 @@ ipcRenderer.on('log-entry', (event, logEntry) => {
 
         logsContent.appendChild(logElement);
         logsContent.scrollTop = logsContent.scrollHeight;
+    }
+});
+
+// Roon event listeners
+ipcRenderer.on('roon-core-paired', (event, core) => {
+    console.log('Roon core paired:', core);
+    updateConnectionStatus('roon', 'connected', `Connected to ${core.display_name}`);
+    addLogEntry(`Roon connected to core: ${core.display_name}`, 'success');
+});
+
+ipcRenderer.on('roon-zones-updated', (event, zones) => {
+    console.log('Roon zones updated:', zones);
+    addLogEntry(`Roon zones updated: ${zones.length} zones available`, 'info');
+});
+
+ipcRenderer.on('roon-zone-selected', (event, zone) => {
+    console.log('Roon zone selected:', zone);
+    addLogEntry(`Roon zone selected: ${zone.display_name}`, 'info');
+});
+
+ipcRenderer.on('roon-track-changed', (event, trackInfo) => {
+    console.log('Roon track changed:', trackInfo);
+    if (trackInfo) {
+        updateCurrentTrack({
+            title: trackInfo.title,
+            artist: trackInfo.artist,
+            album: trackInfo.album,
+            duration: trackInfo.duration,
+            progress: trackInfo.position
+        });
+        addLogEntry(`Now playing: ${trackInfo.title} by ${trackInfo.artist}`, 'success');
+    } else {
+        updateCurrentTrack({ title: '-', artist: '-', album: '-' });
+        addLogEntry('Playback stopped', 'info');
     }
 });
 

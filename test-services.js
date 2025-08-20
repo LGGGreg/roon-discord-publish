@@ -7,6 +7,7 @@
 
 const ConfigManager = require('./src/core/ConfigManager');
 const DiscordService = require('./src/core/DiscordService');
+const RoonService = require('./src/core/RoonService');
 const Logger = require('./src/utils/Logger');
 
 // Initialize logger with debug level for testing
@@ -22,6 +23,7 @@ const configManager = new ConfigManager();
 
 // Service instances
 let discordService = null;
+let roonService = null;
 
 // Service testers
 const serviceTesters = {
@@ -120,33 +122,94 @@ Discord Commands:
     
     async roon(command, ...args) {
         console.log('\n=== Roon Service Test ===');
-        console.log('Roon service testing coming soon...');
-        
-        // TODO: Implement Roon service testing
+
+        if (!roonService) {
+            roonService = new RoonService(configManager);
+
+            // Set up event listeners
+            roonService.on('state-changed', (event) => {
+                logger.info('Roon', `State: ${event.oldState} -> ${event.newState}`, {
+                    details: event.details,
+                    error: event.error?.message
+                });
+            });
+
+            roonService.on('core-paired', (core) => {
+                logger.info('Roon', `Core paired: ${core.display_name}`, core);
+            });
+
+            roonService.on('zones-updated', (zones) => {
+                logger.info('Roon', `Zones updated: ${zones.length} zones available`);
+            });
+
+            roonService.on('zone-selected', (zone) => {
+                logger.info('Roon', `Zone selected: ${zone.display_name}`);
+            });
+
+            roonService.on('track-changed', (track) => {
+                const trackInfo = roonService.getCurrentTrack();
+                logger.info('Roon', `Track changed: ${trackInfo?.title || 'Unknown'}`, trackInfo);
+            });
+        }
+
         switch (command) {
-            case 'discover':
-                logger.info('Roon', 'Discovering Roon cores...');
+            case 'connect':
+                logger.info('Roon', 'Testing connection...');
+                const connected = await roonService.reconnect(true);
+                logger.info('Roon', `Connection result: ${connected ? 'SUCCESS' : 'FAILED'}`);
                 break;
-                
-            case 'pair':
-                logger.info('Roon', 'Attempting to pair with Roon core...');
+
+            case 'disconnect':
+                logger.info('Roon', 'Disconnecting...');
+                await roonService.disconnect();
                 break;
-                
-            case 'zones':
-                logger.info('Roon', 'Listing available zones...');
-                break;
-                
+
             case 'status':
-                logger.info('Roon', 'Getting playback status...');
+                const stats = roonService.getStats();
+                logger.info('Roon', 'Service status', stats);
                 break;
-                
+
+            case 'zones':
+                logger.info('Roon', 'Getting available zones...');
+                const zones = roonService.getZones();
+                logger.info('Roon', `Available zones (${zones.length})`, zones);
+                break;
+
+            case 'track':
+                logger.info('Roon', 'Getting current track...');
+                const track = roonService.getCurrentTrack();
+                logger.info('Roon', 'Current track', track);
+                break;
+
+            case 'zone':
+                const zoneId = args[0];
+                if (zoneId) {
+                    logger.info('Roon', `Setting zone to: ${zoneId}`);
+                    const success = roonService.setCurrentZone(zoneId);
+                    logger.info('Roon', `Zone set result: ${success ? 'SUCCESS' : 'FAILED'}`);
+                } else {
+                    logger.info('Roon', 'Current zone info');
+                    const currentZone = roonService.currentZone;
+                    logger.info('Roon', 'Current zone', currentZone);
+                }
+                break;
+
+            case 'health':
+                logger.info('Roon', 'Performing health check...');
+                const healthy = await roonService.performHealthCheck();
+                logger.info('Roon', `Health check result: ${healthy ? 'HEALTHY' : 'UNHEALTHY'}`);
+                break;
+
             default:
                 console.log(`
-Roon Commands (Coming Soon):
-  discover                   - Discover Roon cores
-  pair                       - Pair with Roon core
+Roon Commands:
+  connect                    - Test Roon connection
+  disconnect                 - Disconnect from Roon
+  status                     - Show service status
   zones                      - List available zones
-  status                     - Get playback status
+  track                      - Get current track info
+  zone [zone_id]             - Set/get current zone
+  health                     - Perform health check
                 `);
         }
     },
