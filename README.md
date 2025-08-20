@@ -1,15 +1,24 @@
-# roon-discord-publish
-Uses the Discord Presence API to show what you're listening to on Roon.
+# Roon Discord Rich Presence - GUI Edition
 
-Based on 
-* an [implementation](https://github.com/jamesxsc/roon-discord-rp) by 615283 (James Conway).
-* an  [implementation](https://github.com/williamtdr/roon-discord-publish) by williamtdr
-* an [implementation](https://github.com/jaredallard/roon-discord-publish) by jaredallard
+A modern GUI application that displays your currently playing music from Roon in Discord as Rich Presence.
 
-Changes
+## New in GUI Edition
+
+- **Modern Electron-based GUI** - Easy-to-use graphical interface
+- **Real-time Status Dashboard** - Visual connection status for all services
+- **Configuration Management** - GUI forms for API keys with validation
+- **System Tray Support** - Background operation (coming soon)
+- **Robust Connection Management** - Automatic retry with exponential backoff
+- **Comprehensive Logging** - Built-in log viewer for troubleshooting
+
+## Original Features
+
+Based on implementations by 615283 (James Conway), williamtdr, and jaredallard.
+
+Changes from original:
 - Does not crash on songs with no artist set
 - Supports album and artist images
-- 
+- Modern GUI interface for easier configuration and monitoring
 ## Requirements
 
 - **Node.js 16.x** (Required for compatibility with Roon API)
@@ -65,10 +74,20 @@ Changes
 
 ## Commands
 
-- `npm run local` - Run with local Node.js 16.x (recommended)
-- `npm start` - Run with system Node.js (with version checking)
+### GUI Application
+- `npm run electron` - Run the GUI application
+- `npm run electron-dev` - Run in development mode with DevTools
+- `npm run build` - Build distributable packages
+
+### Console Application (Legacy)
+- `npm run local` - Run console version with local Node.js 16.x
+- `npm start` - Run console version with system Node.js (with version checking)
+- `npm run direct` - Run console version directly without version checking
+
+### Development
 - `npm run setup-local-node` - Download and set up local Node.js 16.x
-- `npm run direct` - Run directly without version checking
+- `npm run clean` - Clean build artifacts
+- `npm run rebuild` - Rebuild native dependencies
 
 ## Configuration
 
