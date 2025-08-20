@@ -71,3 +71,5 @@ coverage/
 *.rpm
 
 roon-discord-config.json
+
+test-results/screenshots/

@@ -28,31 +28,31 @@
             <div id="status-tab" class="tab-content active">
                 <div class="status-grid">
                     <!-- Connection Status Cards -->
-                    <div class="status-card">
+                    <div class="status-card" data-service="discord">
                         <div class="status-header">
                             <h3>Discord</h3>
                             <div class="status-indicator" id="discord-status">
-                                <span class="status-dot disconnected"></span>
-                                <span class="status-text">Disconnected</span>
+                                <span class="status-dot disconnected" data-testid="discord-status-dot"></span>
+                                <span class="status-text" data-testid="discord-status-text">Disconnected</span>
                             </div>
                         </div>
                         <div class="status-details">
-                            <p id="discord-details">Not connected to Discord</p>
-                            <button class="btn btn-small" id="discord-reconnect">Reconnect</button>
+                            <p id="discord-details" data-testid="discord-details">Not connected to Discord</p>
+                            <button class="btn btn-small" id="discord-reconnect" data-testid="discord-reconnect">Reconnect</button>
                         </div>
                     </div>
 
-                    <div class="status-card">
+                    <div class="status-card" data-service="roon">
                         <div class="status-header">
                             <h3>Roon</h3>
                             <div class="status-indicator" id="roon-status">
-                                <span class="status-dot disconnected"></span>
-                                <span class="status-text">Disconnected</span>
+                                <span class="status-dot disconnected" data-testid="roon-status-dot"></span>
+                                <span class="status-text" data-testid="roon-status-text">Disconnected</span>
                             </div>
                         </div>
                         <div class="status-details">
-                            <p id="roon-details">Not connected to Roon</p>
-                            <button class="btn btn-small" id="roon-reconnect">Reconnect</button>
+                            <p id="roon-details" data-testid="roon-details">Not connected to Roon</p>
+                            <button class="btn btn-small" id="roon-reconnect" data-testid="roon-reconnect">Reconnect</button>
                         </div>
                     </div>
 
@@ -115,9 +115,9 @@
 
                 <!-- Quick Actions -->
                 <div class="quick-actions">
-                    <button class="btn btn-primary" id="reconnect-all">Reconnect All</button>
-                    <button class="btn btn-secondary" id="clear-activity">Clear Discord Activity</button>
-                    <button class="btn btn-secondary" id="test-activity">Test Discord Activity</button>
+                    <button class="btn btn-primary" id="reconnect-all" data-testid="reconnect-all">Reconnect All</button>
+                    <button class="btn btn-secondary" id="clear-activity" data-testid="clear-activity">Clear Discord Activity</button>
+                    <button class="btn btn-secondary" id="test-activity" data-testid="test-activity">Test Discord Activity</button>
                 </div>
             </div>
 

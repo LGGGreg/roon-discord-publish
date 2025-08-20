@@ -19,6 +19,12 @@
     "build-win": "electron-builder --win",
     "build-mac": "electron-builder --mac",
     "build-linux": "electron-builder --linux",
+    "test": "playwright test",
+    "test:gui": "playwright test --headed",
+    "test:screenshot": "node test/cli/screenshot.js",
+    "test:status": "node test/cli/status-check.js",
+    "test:interactive": "node test/cli/interactive.js",
+    "test:report": "playwright show-report test-results/html-report",
     "pack": "electron-builder --dir",
     "dist": "npm run build",
     "clean": "rimraf dist",
@@ -43,12 +49,15 @@
     "spotify-web-api-node": "^5.0.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "cross-env": "^7.0.3",
     "electron": "^28.3.3",
     "electron-builder": "^24.13.3",
     "electron-rebuild": "^3.2.9",
     "electron-reload": "^2.0.0-alpha.1",
-    "rimraf": "^5.0.10"
+    "playwright": "^1.54.2",
+    "rimraf": "^5.0.10",
+    "screenshot-desktop": "^1.15.2"
   },
   "build": {
     "appId": "com.echofox.roon-discord-publish",

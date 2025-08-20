@@ -636,3 +636,63 @@ ipcMain.handle('request-service-status', () => {
 
     return true;
 });
+
+// Test automation IPC handlers (only in development)
+if (process.env.NODE_ENV === 'development') {
+    // Get comprehensive service status for testing
+    ipcMain.handle('test-get-all-status', () => {
+        const status = {};
+
+        if (discordService) {
+            status.discord = discordService.getStats();
+        }
+
+        if (roonService) {
+            status.roon = roonService.getStats();
+        }
+
+        return status;
+    });
+
+    // Trigger service reconnection for testing
+    ipcMain.handle('test-trigger-reconnect', (event, service) => {
+        console.log(`Test: Triggering reconnect for ${service}`);
+
+        if (service === 'discord' && discordService) {
+            discordService.reconnect(true);
+            return { success: true, message: `Discord reconnect triggered` };
+        }
+
+        if (service === 'roon' && roonService) {
+            roonService.reconnect(true);
+            return { success: true, message: `Roon reconnect triggered` };
+        }
+
+        return { success: false, message: `Unknown service: ${service}` };
+    });
+
+    // Get window bounds for screenshot positioning
+    ipcMain.handle('test-get-window-bounds', () => {
+        if (mainWindow) {
+            return mainWindow.getBounds();
+        }
+        return null;
+    });
+
+    // Test activity functions
+    ipcMain.handle('test-clear-activity', () => {
+        if (discordService) {
+            discordService.clearActivity();
+            return { success: true, message: 'Discord activity cleared' };
+        }
+        return { success: false, message: 'Discord service not available' };
+    });
+
+    ipcMain.handle('test-set-activity', (event, activity) => {
+        if (discordService) {
+            discordService.setActivity(activity);
+            return { success: true, message: 'Discord activity set' };
+        }
+        return { success: false, message: 'Discord service not available' };
+    });
+}
