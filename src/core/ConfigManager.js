@@ -34,7 +34,6 @@ class ConfigManager extends EventEmitter {
             },
             app: {
                 use_discovery: true,
-                auto_start: false,
                 minimize_to_tray: true
             },
             roonstate: {

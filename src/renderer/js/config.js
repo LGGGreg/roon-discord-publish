@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
         roonCoreIp: document.getElementById('roon-core-ip'),
         roonZoneId: document.getElementById('roon-zone-id'),
         roonUseDiscovery: document.getElementById('roon-use-discovery'),
-        appAutoStart: document.getElementById('app-auto-start'),
         appMinimizeToTray: document.getElementById('app-minimize-to-tray')
     };
     
@@ -35,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Set checkboxes
             configForm.roonUseDiscovery.checked = config.app?.use_discovery !== false;
-            configForm.appAutoStart.checked = config.app?.auto_start === true;
             configForm.appMinimizeToTray.checked = config.app?.minimize_to_tray !== false;
 
             if (window.addLogEntry) {
@@ -70,7 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 zone_id: configForm.roonZoneId.value.trim(),
                 app: {
                     use_discovery: configForm.roonUseDiscovery.checked,
-                    auto_start: configForm.appAutoStart.checked,
                     minimize_to_tray: configForm.appMinimizeToTray.checked
                 }
             };
