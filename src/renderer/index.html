@@ -19,6 +19,7 @@
                 <button class="nav-tab active" data-tab="status">Status</button>
                 <button class="nav-tab" data-tab="config">Configuration</button>
                 <button class="nav-tab" data-tab="logs">Logs</button>
+                <button class="nav-tab" data-tab="help">Help</button>
             </div>
         </nav>
 
@@ -252,6 +253,64 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Help Tab -->
+            <div id="help-tab" class="tab-content">
+                <div class="help-section">
+                    <h2 style="color: var(--text-primary); text-align: center; margin-bottom: 2rem;">
+                        🎵 Help & Documentation
+                    </h2>
+
+                    <div style="text-align: center; margin-bottom: 2rem;">
+                        <p style="color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 1.5rem;">
+                            Need help setting up API keys or configuring services? Our comprehensive guide has you covered!
+                        </p>
+
+                        <button class="btn btn-primary" onclick="openHelpWindow()" style="font-size: 1.1rem; padding: 1rem 2rem;">
+                            📖 Open Full Help Guide
+                        </button>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 2rem;">
+                        <div class="help-quick-card">
+                            <h3>🎮 Discord Setup</h3>
+                            <p>Create a Discord application and get your Client ID for rich presence integration.</p>
+                            <button class="btn btn-secondary btn-small" onclick="openHelpSection('discord')">Learn More</button>
+                        </div>
+
+                        <div class="help-quick-card">
+                            <h3>🎵 Roon Configuration</h3>
+                            <p>Connect to your Roon Core using automatic discovery or manual IP configuration.</p>
+                            <button class="btn btn-secondary btn-small" onclick="openHelpSection('roon')">Learn More</button>
+                        </div>
+
+                        <div class="help-quick-card">
+                            <h3>🎧 Spotify Integration</h3>
+                            <p>Optional: Add Spotify links to your Discord status for easy music sharing.</p>
+                            <button class="btn btn-secondary btn-small" onclick="openHelpSection('spotify')">Learn More</button>
+                        </div>
+
+                        <div class="help-quick-card">
+                            <h3>🖼️ Imgur Setup</h3>
+                            <p>Optional: Upload album artwork to enhance your Discord rich presence.</p>
+                            <button class="btn btn-secondary btn-small" onclick="openHelpSection('imgur')">Learn More</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-primary);">
+                        <h3 style="color: var(--text-primary); margin-bottom: 1rem;">🔧 Quick Troubleshooting</h3>
+                        <ul style="color: var(--text-secondary); line-height: 1.6;">
+                            <li><strong>Discord not showing status:</strong> Check your Client ID and Discord privacy settings</li>
+                            <li><strong>Can't connect to Roon:</strong> Ensure Roon Core is running and accept the pairing request</li>
+                            <li><strong>No album artwork:</strong> Verify your Imgur Client ID or check internet connection</li>
+                            <li><strong>Spotify links not working:</strong> Double-check both Client ID and Client Secret</li>
+                        </ul>
+                        <button class="btn btn-secondary btn-small" onclick="openHelpSection('troubleshooting')" style="margin-top: 1rem;">
+                            View Full Troubleshooting Guide
+                        </button>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -262,5 +321,6 @@
     <script src="js/config.js"></script>
     <script src="js/logs.js"></script>
     <script src="js/debug.js"></script>
+    <script src="js/help.js"></script>
 </body>
 </html>
