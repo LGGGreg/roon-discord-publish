@@ -47,7 +47,7 @@ function createWindow() {
             contextIsolation: false,
             enableRemoteModule: true
         },
-        icon: path.join(__dirname, '../../assets/icon.svg'),
+        icon: path.join(__dirname, '../../assets/icon.png'),
         show: false, // Don't show until ready
         titleBarStyle: 'default'
     });
@@ -890,6 +890,17 @@ app.on('before-quit', () => {
     if (tray) {
         tray.destroy();
         tray = null;
+    }
+});
+
+// System IPC handlers
+ipcMain.handle('open-external', async (event, url) => {
+    try {
+        await shell.openExternal(url);
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to open external URL:', error);
+        return { success: false, error: error.message };
     }
 });
 

@@ -1,19 +1,19 @@
 // Help functionality for Roon Discord Rich Presence
 
-const { shell } = require('electron');
-const path = require('path');
-
 /**
  * Open the full help guide in a new window
  */
-function openHelpWindow() {
+async function openHelpWindow() {
     try {
-        // Get the path to the help.html file
-        const helpPath = path.join(__dirname, '../help.html');
-        const helpUrl = `file://${helpPath}`;
-        
-        // Open in external browser for better experience
-        shell.openExternal(helpUrl);
+        // Use IPC to open external links
+        if (window.require) {
+            const { ipcRenderer } = window.require('electron');
+            const helpPath = new URL('../help.html', window.location.href).href;
+            await ipcRenderer.invoke('open-external', helpPath);
+        } else {
+            // Fallback: open in same window
+            window.open('../help.html', '_blank');
+        }
     } catch (error) {
         console.error('Failed to open help window:', error);
         
@@ -44,16 +44,19 @@ Check the Logs tab for detailed error messages if you encounter issues.`);
  * Open help guide to a specific section
  * @param {string} section - The section to navigate to (discord, roon, spotify, imgur, troubleshooting)
  */
-function openHelpSection(section) {
+async function openHelpSection(section) {
     try {
-        const helpPath = path.join(__dirname, '../help.html');
-        const helpUrl = `file://${helpPath}#${section}`;
-        
-        // Open in external browser with anchor link
-        shell.openExternal(helpUrl);
+        if (window.require) {
+            const { ipcRenderer } = window.require('electron');
+            const helpPath = new URL('../help.html', window.location.href).href + '#' + section;
+            await ipcRenderer.invoke('open-external', helpPath);
+        } else {
+            // Fallback: open in same window
+            window.open('../help.html#' + section, '_blank');
+        }
     } catch (error) {
         console.error('Failed to open help section:', error);
-        
+
         // Fallback to opening the full help
         openHelpWindow();
     }
