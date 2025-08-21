@@ -7,11 +7,13 @@ const ConnectionManager = require('./ConnectionManager');
 class DiscordService extends ConnectionManager {
     constructor(configManager, options = {}) {
         super('Discord', {
-            maxRetries: 15,
+            maxRetries: Infinity, // Infinite retries
             initialRetryDelay: 2000,
-            maxRetryDelay: 30000,
+            maxRetryDelay: 10000, // Cap at 10 seconds for faster perpetual retries
             healthCheckInterval: 60000, // Check every minute
             connectionTimeout: 15000, // 15 seconds
+            perpetualRetry: true, // Enable perpetual retries
+            perpetualRetryInterval: 10000, // Retry every 10 seconds when in perpetual mode
             ...options
         });
         

@@ -381,6 +381,23 @@ function initializeServices() {
         }
     });
 
+    // Listen for track position changes (seek updates)
+    roonService.on('track-position-changed', (trackInfo) => {
+        // Update Discord activity with new position (but rate limited)
+        if (discordService && discordService.isConnected() && trackInfo) {
+            updateDiscordActivityWithEnhancements(trackInfo, true); // true = isPositionUpdate
+        }
+
+        // Send position update to frontend (less frequently to avoid spam)
+        if (mainWindow && trackInfo) {
+            const trackInfoWithArt = {
+                ...trackInfo,
+                albumArt: trackInfo.albumArt || null
+            };
+            mainWindow.webContents.send('roon-track-position-changed', trackInfoWithArt);
+        }
+    });
+
     // Set up Spotify service events
     spotifyService.on('state-changed', (event) => {
         logger.info('Spotify', `State: ${event.oldState} -> ${event.newState}`, {
@@ -513,10 +530,58 @@ function initializeServices() {
     });
 }
 
+// Debouncing and race condition prevention for Discord updates
+let discordUpdateTimeout = null;
+let isUpdatingDiscord = false;
+let lastDiscordUpdate = 0;
+
 /**
  * Update Discord activity with Spotify and Imgur enhancements
  */
-async function updateDiscordActivityWithEnhancements(trackInfo) {
+async function updateDiscordActivityWithEnhancements(trackInfo, isPositionUpdate = false) {
+    // Prevent multiple simultaneous updates
+    if (isUpdatingDiscord) {
+        console.log('Discord: Update already in progress, skipping');
+        return;
+    }
+
+    // For position updates, debounce more aggressively
+    if (isPositionUpdate) {
+        const now = Date.now();
+        if (now - lastDiscordUpdate < 15000) { // 15 seconds for position updates
+            console.log('Discord: Position update rate limited, skipping');
+            return;
+        }
+    }
+
+    // Clear any pending timeout
+    if (discordUpdateTimeout) {
+        clearTimeout(discordUpdateTimeout);
+        discordUpdateTimeout = null;
+    }
+
+    // For position updates, add a small delay to allow for rapid changes to settle
+    if (isPositionUpdate) {
+        discordUpdateTimeout = setTimeout(() => {
+            performDiscordUpdate(trackInfo);
+        }, 1000);
+        return;
+    }
+
+    // For track changes, update immediately
+    await performDiscordUpdate(trackInfo);
+}
+
+/**
+ * Perform the actual Discord update
+ */
+async function performDiscordUpdate(trackInfo) {
+    if (isUpdatingDiscord) {
+        return;
+    }
+
+    isUpdatingDiscord = true;
+    lastDiscordUpdate = Date.now();
     try {
         let spotifyUrl = '';
         let largeImageUrl = '';
@@ -535,12 +600,18 @@ async function updateDiscordActivityWithEnhancements(trackInfo) {
         }
 
         // Get album art URLs if Imgur service is connected and we have image keys
+        // If Imgur is not connected yet, skip the retry to avoid race conditions
+        if (imgurService && !imgurService.isConnected() && trackInfo.image_key) {
+            console.log(`Imgur is not connected yet (state: ${imgurService.state}), using fallback images`);
+            // Don't schedule a retry here to avoid race conditions
+        }
+
         if (imgurService && imgurService.isConnected() && roonService && roonService.image) {
             try {
+                // Upload album art (large image)
                 if (trackInfo.image_key) {
                     console.log('Imgur: Uploading album art for', trackInfo.title, 'with image key:', trackInfo.image_key);
 
-                    // Upload large image
                     const largeImageResult = await imgurService.uploadRoonImage(roonService.image, trackInfo.image_key, {
                         scale: 'fit',
                         width: 512,
@@ -550,14 +621,32 @@ async function updateDiscordActivityWithEnhancements(trackInfo) {
 
                     if (largeImageResult && largeImageResult.url) {
                         largeImageUrl = largeImageResult.url;
-                        logger.info('Imgur', `Uploaded large image for ${trackInfo.title}: ${largeImageUrl}`);
-
-                        // Use same image for small image (could be different in the future)
-                        smallImageUrl = largeImageUrl;
+                        logger.info('Imgur', `Uploaded album art for ${trackInfo.title}: ${largeImageUrl}`);
                     }
                 }
+
+                // Upload artist art (small image) if available
+                if (trackInfo.artist_image_key) {
+                    console.log('Imgur: Uploading artist art for', trackInfo.artist, 'with image key:', trackInfo.artist_image_key);
+
+                    const smallImageResult = await imgurService.uploadRoonImage(roonService.image, trackInfo.artist_image_key, {
+                        scale: 'fit',
+                        width: 256,
+                        height: 256,
+                        format: 'image/jpeg'
+                    });
+
+                    if (smallImageResult && smallImageResult.url) {
+                        smallImageUrl = smallImageResult.url;
+                        logger.info('Imgur', `Uploaded artist art for ${trackInfo.artist}: ${smallImageUrl}`);
+                    }
+                } else {
+                    // Fallback: use album art for small image if no artist art available
+                    console.log('Imgur: No artist art available, using album art for small image');
+                    smallImageUrl = largeImageUrl;
+                }
             } catch (error) {
-                logger.warn('Imgur', `Failed to upload album art: ${error.message}`);
+                logger.warn('Imgur', `Failed to upload images: ${error.message}`);
                 console.error('Imgur upload error details:', error);
             }
         }
@@ -602,6 +691,29 @@ async function updateDiscordActivityWithEnhancements(trackInfo) {
         } catch (fallbackError) {
             logger.error('Discord', 'Fallback activity also failed', fallbackError.message);
         }
+    } finally {
+        // Always reset the update flag
+        isUpdatingDiscord = false;
+    }
+}
+
+/**
+ * Get default status details based on service and state
+ */
+function getDefaultStatusDetails(service, state) {
+    switch (state) {
+        case 'disconnected':
+            return `Not connected to ${service.charAt(0).toUpperCase() + service.slice(1)}`;
+        case 'connecting':
+            return service === 'roon' ? 'Searching for Roon Core...' : 'Attempting to connect...';
+        case 'connected':
+            return 'Connection established';
+        case 'reconnecting':
+            return 'Reconnecting...';
+        case 'error':
+            return 'Connection failed';
+        default:
+            return '';
     }
 }
 
@@ -609,21 +721,26 @@ async function updateDiscordActivityWithEnhancements(trackInfo) {
  * Get album art URL for track display in frontend
  */
 async function getAlbumArtForTrack(trackInfo) {
-    console.log('getAlbumArtForTrack called with:', trackInfo?.title, trackInfo?.image_key);
+    const imageKey = trackInfo?.image_key || trackInfo?.imageKey;
+    console.log('getAlbumArtForTrack called with:', trackInfo?.title, imageKey);
     console.log('roonService available:', !!roonService);
     console.log('roonService.image available:', !!roonService?.image);
 
-    if (!trackInfo || !trackInfo.image_key || !roonService || !roonService.image) {
+    if (!trackInfo || !imageKey || !roonService || !roonService.image) {
         console.log('getAlbumArtForTrack: Missing required data, returning null');
+        console.log('  trackInfo:', !!trackInfo);
+        console.log('  imageKey:', imageKey);
+        console.log('  roonService:', !!roonService);
+        console.log('  roonService.image:', !!roonService?.image);
         return null;
     }
 
     try {
-        console.log('Getting album art for frontend display, image key:', trackInfo.image_key);
+        console.log('Getting album art for frontend display, image key:', imageKey);
 
         // Get image from Roon as data URL for frontend display
         const imageData = await new Promise((resolve, reject) => {
-            roonService.image.get_image(trackInfo.image_key, {
+            roonService.image.get_image(imageKey, {
                 scale: 'fit',
                 width: 300,
                 height: 300,
@@ -1042,7 +1159,7 @@ ipcMain.handle('request-service-status', () => {
             mainWindow.webContents.send('service-status-changed', {
                 service: 'roon',
                 status: roonStats.state,
-                details: roonStats.details || 'Connecting to Roon Core...',
+                details: roonStats.details || getDefaultStatusDetails('roon', roonStats.state),
                 error: roonStats.lastError
             });
         }
@@ -1053,7 +1170,7 @@ ipcMain.handle('request-service-status', () => {
             mainWindow.webContents.send('service-status-changed', {
                 service: 'spotify',
                 status: spotifyStats.state,
-                details: spotifyStats.details || 'Connecting to Spotify API...',
+                details: spotifyStats.details || getDefaultStatusDetails('spotify', spotifyStats.state),
                 error: spotifyStats.lastError
             });
         }
@@ -1064,9 +1181,33 @@ ipcMain.handle('request-service-status', () => {
             mainWindow.webContents.send('service-status-changed', {
                 service: 'imgur',
                 status: imgurStats.state,
-                details: imgurStats.details || 'Connecting to Imgur API...',
+                details: imgurStats.details || getDefaultStatusDetails('imgur', imgurStats.state),
                 error: imgurStats.lastError
             });
+        }
+
+        // Send current track state to frontend if available
+        if (roonService && roonService.getCurrentTrack) {
+            const currentTrack = roonService.getCurrentTrack();
+            if (currentTrack && currentTrack.title && currentTrack.title !== '-') {
+                console.log('Sending current track to frontend:', currentTrack.title);
+
+                // Get album art and send track info to frontend
+                getAlbumArtForTrack(currentTrack).then(albumArtUrl => {
+                    const trackInfoWithArt = {
+                        ...currentTrack,
+                        albumArt: albumArtUrl
+                    };
+                    mainWindow.webContents.send('roon-track-changed', trackInfoWithArt);
+                    console.log('✅ Current track sent to frontend with album art');
+                }).catch(error => {
+                    console.error('Error getting album art for current track:', error);
+                    mainWindow.webContents.send('roon-track-changed', currentTrack);
+                    console.log('✅ Current track sent to frontend without album art');
+                });
+            } else {
+                console.log('No current track available to send to frontend');
+            }
         }
     }
 

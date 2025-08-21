@@ -9,11 +9,13 @@ const ConnectionManager = require('./ConnectionManager');
 class RoonService extends ConnectionManager {
     constructor(configManager, options = {}) {
         super('Roon', {
-            maxRetries: 10,
+            maxRetries: Infinity, // Infinite retries
             initialRetryDelay: 3000,
-            maxRetryDelay: 60000,
+            maxRetryDelay: 10000, // Cap at 10 seconds for faster perpetual retries
             healthCheckInterval: 30000,
             connectionTimeout: 20000,
+            perpetualRetry: true, // Enable perpetual retries
+            perpetualRetryInterval: 10000, // Retry every 10 seconds when in perpetual mode
             ...options
         });
         
@@ -239,6 +241,9 @@ class RoonService extends ConnectionManager {
                     if (cmd === 'Subscribed' || cmd === 'Changed') {
                         if (data && data.zones) {
                             this.handleZonesUpdate(data);
+                        } else if (cmd === 'Changed' && data) {
+                            // Handle zone changes that don't have zones array
+                            this.handleZoneChanges(data);
                         }
                     }
                 } catch (error) {
@@ -257,17 +262,78 @@ class RoonService extends ConnectionManager {
      */
     handleZonesUpdate(data) {
         if (!data || !data.zones) return;
-        
+
         // Update zones map
         this.zones.clear();
         data.zones.forEach(zone => {
             this.zones.set(zone.zone_id, zone);
         });
-        
+
         // Find current zone or select default
         this.selectCurrentZone();
-        
+
         this.emit('zones-updated', Array.from(this.zones.values()));
+    }
+
+    /**
+     * Handle zone changes (for Changed events without zones array)
+     */
+    handleZoneChanges(data) {
+        if (!data) return;
+
+        // Handle zones_changed array
+        if (data.zones_changed && Array.isArray(data.zones_changed)) {
+            data.zones_changed.forEach(zone => {
+                this.zones.set(zone.zone_id, zone);
+
+                // If this is our current zone or we don't have one, update it
+                if (!this.currentZone || zone.zone_id === this.currentZone.zone_id) {
+                    this.currentZone = zone;
+
+                    // Check if zone has now_playing information and emit track change
+                    if (zone.now_playing) {
+                        const trackInfo = this.extractTrackInfo(zone);
+                        if (trackInfo) {
+                            this.currentTrack = trackInfo;
+                            this.emit('track-changed', trackInfo);
+                            console.log(`Track changed from zone update: ${trackInfo.title} - ${trackInfo.artist}`);
+                        }
+                    }
+                }
+            });
+        }
+
+        // Handle zones_seek_changed array (position updates)
+        if (data.zones_seek_changed && Array.isArray(data.zones_seek_changed)) {
+            data.zones_seek_changed.forEach(seekUpdate => {
+                // Update the zone with new seek position
+                if (this.currentZone && seekUpdate.zone_id === this.currentZone.zone_id) {
+                    // Update the current zone's seek position
+                    if (this.currentZone.now_playing) {
+                        this.currentZone.now_playing.seek_position = seekUpdate.seek_position;
+
+                        // Extract updated track info with new position
+                        const trackInfo = this.extractTrackInfo(this.currentZone);
+                        if (trackInfo) {
+                            this.currentTrack = trackInfo;
+                            this.emit('track-position-changed', trackInfo);
+                            // Don't log every position update as it's too verbose
+                        }
+                    }
+                }
+            });
+        }
+
+        // Handle zones_removed array
+        if (data.zones_removed && Array.isArray(data.zones_removed)) {
+            data.zones_removed.forEach(zoneId => {
+                this.zones.delete(zoneId);
+                if (this.currentZone && this.currentZone.zone_id === zoneId) {
+                    this.currentZone = null;
+                    this.selectCurrentZone();
+                }
+            });
+        }
     }
     
     /**
@@ -434,6 +500,13 @@ class RoonService extends ConnectionManager {
 
         console.log('extractTrackInfo: nowPlaying.image_key =', nowPlaying.image_key);
 
+        // Extract artist image key if available
+        let artistImageKey = null;
+        if (nowPlaying.artist_image_keys && nowPlaying.artist_image_keys.length > 0) {
+            artistImageKey = nowPlaying.artist_image_keys[0];
+            console.log('extractTrackInfo: found artist_image_key =', artistImageKey);
+        }
+
         const trackInfo = {
             title: threeLine.line1 || twoLine.line1 || 'Unknown Track',
             artist: threeLine.line2 || twoLine.line2 || 'Unknown Artist',
@@ -444,6 +517,7 @@ class RoonService extends ConnectionManager {
             progress: nowPlaying.seek_position || 0,
             state: zone.state || 'unknown',
             image_key: nowPlaying.image_key || null,
+            artist_image_key: artistImageKey,
             albumArt: null // Will be set later if needed
         };
 

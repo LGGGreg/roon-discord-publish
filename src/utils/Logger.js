@@ -205,27 +205,60 @@ class Logger extends EventEmitter {
             formattedMessage
         };
         
-        // Console output
+        // Console output with error handling
         if (this.options.enableConsole) {
-            const consoleMethod = level === LogLevel.ERROR ? 'error' :
-                                level === LogLevel.WARN ? 'warn' :
-                                level === LogLevel.DEBUG ? 'debug' : 'log';
-            console[consoleMethod](formattedMessage);
+            try {
+                const consoleMethod = level === LogLevel.ERROR ? 'error' :
+                                    level === LogLevel.WARN ? 'warn' :
+                                    level === LogLevel.DEBUG ? 'debug' : 'log';
+                console[consoleMethod](formattedMessage);
+            } catch (error) {
+                // Handle broken pipe errors gracefully
+                if (error.code === 'EPIPE' || error.message.includes('broken pipe')) {
+                    // Disable console logging if pipe is broken
+                    this.options.enableConsole = false;
+                } else {
+                    // For other errors, try to log to stderr if available
+                    try {
+                        process.stderr.write(`Logger console error: ${error.message}\n`);
+                    } catch (stderrError) {
+                        // If even stderr fails, disable console logging
+                        this.options.enableConsole = false;
+                    }
+                }
+            }
         }
         
-        // File output
+        // File output with enhanced error handling
         if (this.options.enableFile && this.logFile) {
             try {
                 const logLine = formattedMessage + '\n';
                 fs.appendFileSync(this.logFile, logLine, 'utf8');
                 this.currentLogSize += Buffer.byteLength(logLine, 'utf8');
-                
+
                 // Check if rotation is needed
                 if (this.currentLogSize >= this.options.maxFileSize) {
                     this.rotateLogFile();
                 }
             } catch (error) {
-                console.error('Error writing to log file:', error);
+                // Handle file writing errors gracefully
+                if (error.code === 'EPIPE' || error.message.includes('broken pipe')) {
+                    // Disable file logging if pipe is broken
+                    this.options.enableFile = false;
+                } else if (error.code === 'ENOSPC' || error.code === 'EACCES') {
+                    // Disable file logging for disk space or permission issues
+                    this.options.enableFile = false;
+                } else {
+                    // For other errors, try to log to stderr if console is disabled
+                    if (!this.options.enableConsole) {
+                        try {
+                            process.stderr.write(`Logger file error: ${error.message}\n`);
+                        } catch (stderrError) {
+                            // If even stderr fails, just disable file logging
+                            this.options.enableFile = false;
+                        }
+                    }
+                }
             }
         }
         

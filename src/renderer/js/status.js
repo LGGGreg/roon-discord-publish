@@ -2,15 +2,19 @@
 // This file handles real-time status updates and connection monitoring
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Service status elements
-    const discordStatus = document.querySelector('.service-card[data-service="discord"] .status');
-    const discordDetails = document.querySelector('.service-card[data-service="discord"] .details');
-    const roonStatus = document.querySelector('.service-card[data-service="roon"] .status');
-    const roonDetails = document.querySelector('.service-card[data-service="roon"] .details');
-    const spotifyStatus = document.querySelector('.service-card[data-service="spotify"] .status');
-    const spotifyDetails = document.querySelector('.service-card[data-service="spotify"] .details');
-    const imgurStatus = document.querySelector('.service-card[data-service="imgur"] .status');
-    const imgurDetails = document.querySelector('.service-card[data-service="imgur"] .details');
+    // Service status elements - using correct selectors that match the HTML
+    const discordStatus = document.querySelector('#discord-status .status-dot');
+    const discordText = document.querySelector('#discord-status .status-text');
+    const discordDetails = document.querySelector('#discord-details');
+    const roonStatus = document.querySelector('#roon-status .status-dot');
+    const roonText = document.querySelector('#roon-status .status-text');
+    const roonDetails = document.querySelector('#roon-details');
+    const spotifyStatus = document.querySelector('#spotify-status .status-dot');
+    const spotifyText = document.querySelector('#spotify-status .status-text');
+    const spotifyDetails = document.querySelector('#spotify-details');
+    const imgurStatus = document.querySelector('#imgur-status .status-dot');
+    const imgurText = document.querySelector('#imgur-status .status-text');
+    const imgurDetails = document.querySelector('#imgur-details');
 
     // Status mapping
     const statusMap = {
@@ -23,23 +27,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update service status
     function updateServiceStatus(service, status, details, error) {
-        let statusElement, detailsElement;
+        let statusDot, statusText, detailsElement;
 
         switch (service) {
             case 'discord':
-                statusElement = discordStatus;
+                statusDot = discordStatus;
+                statusText = discordText;
                 detailsElement = discordDetails;
                 break;
             case 'roon':
-                statusElement = roonStatus;
+                statusDot = roonStatus;
+                statusText = roonText;
                 detailsElement = roonDetails;
                 break;
             case 'spotify':
-                statusElement = spotifyStatus;
+                statusDot = spotifyStatus;
+                statusText = spotifyText;
                 detailsElement = spotifyDetails;
                 break;
             case 'imgur':
-                statusElement = imgurStatus;
+                statusDot = imgurStatus;
+                statusText = imgurText;
                 detailsElement = imgurDetails;
                 break;
             default:
@@ -47,20 +55,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
         }
 
-        if (statusElement && detailsElement) {
+        if (statusDot && statusText && detailsElement) {
             // Update status indicator
             const statusInfo = statusMap[status] || { class: 'error', text: 'Unknown' };
-            statusElement.className = `status ${statusInfo.class}`;
-            statusElement.textContent = statusInfo.text;
+            statusDot.className = `status-dot ${statusInfo.class}`;
+            statusText.textContent = statusInfo.text;
 
             // Update details
             if (error) {
                 detailsElement.textContent = `Error: ${error}`;
+                detailsElement.style.color = '#e74c3c';
             } else if (details) {
                 detailsElement.textContent = details;
+                detailsElement.style.color = '#666';
             } else {
                 detailsElement.textContent = getDefaultDetails(service, status);
+                detailsElement.style.color = '#666';
             }
+        } else {
+            console.warn(`Status elements not found for service: ${service}`, {
+                statusDot: !!statusDot,
+                statusText: !!statusText,
+                detailsElement: !!detailsElement
+            });
         }
     }
 
@@ -106,19 +123,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         requestInitialStatus();
     }, 3000);
-
-    // Add refresh button functionality (for debugging)
-    const refreshButton = document.createElement('button');
-    refreshButton.textContent = 'Refresh Status';
-    refreshButton.style.position = 'fixed';
-    refreshButton.style.top = '10px';
-    refreshButton.style.right = '10px';
-    refreshButton.style.zIndex = '9999';
-    refreshButton.onclick = () => {
-        console.log('Manual status refresh requested');
-        requestInitialStatus();
-    };
-    document.body.appendChild(refreshButton);
 
     // Export functions for external use
     window.updateServiceStatus = updateServiceStatus;

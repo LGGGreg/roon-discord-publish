@@ -37,8 +37,20 @@ class StatusMonitor extends EventEmitter {
         if (this.logger && this.logger[level]) {
             this.logger[level](category, message, data);
         } else {
-            // Fallback to console
-            console.log(`[${level.toUpperCase()}] ${category}: ${message}`, data || '');
+            // Fallback to console with error handling
+            try {
+                console.log(`[${level.toUpperCase()}] ${category}: ${message}`, data || '');
+            } catch (error) {
+                // Handle broken pipe errors gracefully - just ignore them
+                if (error.code !== 'EPIPE' && !error.message.includes('broken pipe')) {
+                    // For non-pipe errors, try stderr
+                    try {
+                        process.stderr.write(`StatusMonitor log error: ${error.message}\n`);
+                    } catch (stderrError) {
+                        // If even stderr fails, just silently continue
+                    }
+                }
+            }
         }
     }
     
@@ -231,11 +243,15 @@ class StatusMonitor extends EventEmitter {
             // Check for performance alerts
             this.checkPerformanceAlerts(serviceName, serviceInfo, metrics);
 
-            this.log('debug', 'StatusMonitor', `Performance check completed for ${serviceName}`, {
-                isHealthy,
-                responseTime,
-                consecutiveFailures: serviceInfo.consecutiveFailures
-            });
+            // Only log debug info occasionally to avoid spam (every 10th check or on status change)
+            if (serviceInfo.healthCheckCount % 10 === 0 || serviceInfo.consecutiveFailures > 0) {
+                this.log('debug', 'StatusMonitor', `Performance check completed for ${serviceName}`, {
+                    isHealthy,
+                    responseTime,
+                    consecutiveFailures: serviceInfo.consecutiveFailures,
+                    checkCount: serviceInfo.healthCheckCount
+                });
+            }
 
             this.emit('service-performance-checked', serviceName, {
                 isHealthy,

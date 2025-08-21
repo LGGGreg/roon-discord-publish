@@ -26,6 +26,40 @@
         <main class="main-content">
             <!-- Status Tab -->
             <div id="status-tab" class="tab-content active">
+                <!-- Currently Playing Section -->
+                <div class="now-playing-section">
+                    <h2>Currently Playing</h2>
+                    <div class="now-playing-card" id="now-playing">
+                        <div class="album-art">
+                            <img id="album-image" src="" alt="Album Art" style="display: none;">
+                            <div class="no-music" id="no-music">
+                                <span>♪</span>
+                                <p>No music playing</p>
+                            </div>
+                        </div>
+                        <div class="track-info">
+                            <h3 id="track-title" data-testid="track-title">-</h3>
+                            <p id="track-artist" data-testid="track-artist">-</p>
+                            <p id="track-album" data-testid="track-album">-</p>
+                            <p id="track-zone" data-testid="track-zone" class="zone-info">-</p>
+                            <div class="track-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="progress-fill"></div>
+                                </div>
+                                <div class="time-info">
+                                    <span id="current-time">0:00</span>
+                                    <span id="total-time">0:00</span>
+                                </div>
+                            </div>
+                            <div class="track-actions" id="track-actions" style="display: none;">
+                                <button class="btn btn-small btn-spotify" id="spotify-link" data-testid="spotify-link" style="display: none;">
+                                    🎵 Open in Spotify
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="status-grid">
                     <!-- Connection Status Cards -->
                     <div class="status-card" data-service="discord">
@@ -81,43 +115,6 @@
                         <div class="status-details">
                             <p id="imgur-details" data-testid="imgur-details">Not connected to Imgur API</p>
                             <button class="btn btn-small" id="imgur-reconnect" data-testid="imgur-reconnect">Reconnect</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Currently Playing Section -->
-                <div class="now-playing-section">
-                    <h2>Currently Playing</h2>
-                    <div class="now-playing-card" id="now-playing">
-                        <div class="album-art">
-                            <img id="album-image" src="" alt="Album Art" style="display: none;">
-                            <div class="no-music" id="no-music">
-                                <span>♪</span>
-                                <p>No music playing</p>
-                            </div>
-                        </div>
-                        <div class="track-info">
-                            <h3 id="track-title" data-testid="track-title">-</h3>
-                            <p id="track-artist" data-testid="track-artist">-</p>
-                            <p id="track-album" data-testid="track-album">-</p>
-                            <p id="track-zone" data-testid="track-zone" class="zone-info">-</p>
-                            <div class="track-progress">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" id="progress-fill"></div>
-                                </div>
-                                <div class="time-info">
-                                    <span id="current-time">0:00</span>
-                                    <span id="total-time">0:00</span>
-                                </div>
-                            </div>
-                            <div class="track-actions" id="track-actions" style="display: none;">
-                                <button class="btn btn-small btn-spotify" id="spotify-link" data-testid="spotify-link" style="display: none;">
-                                    🎵 Open in Spotify
-                                </button>
-                                <button class="btn btn-small" id="refresh-activity" data-testid="refresh-activity">
-                                    🔄 Refresh Activity
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </div>

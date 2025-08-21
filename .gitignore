@@ -73,3 +73,5 @@ coverage/
 roon-discord-config.json
 
 test-results/screenshots/
+
+test-results/

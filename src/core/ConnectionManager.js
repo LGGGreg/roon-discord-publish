@@ -26,13 +26,15 @@ class ConnectionManager extends EventEmitter {
         
         // Configuration options
         this.options = {
-            maxRetries: options.maxRetries || 10,
+            maxRetries: options.maxRetries || Infinity, // Infinite retries by default
             initialRetryDelay: options.initialRetryDelay || 1000, // 1 second
-            maxRetryDelay: options.maxRetryDelay || 60000, // 1 minute
-            retryMultiplier: options.retryMultiplier || 2,
+            maxRetryDelay: options.maxRetryDelay || 10000, // 10 seconds max delay for perpetual retries
+            retryMultiplier: options.retryMultiplier || 1.5, // Slower exponential backoff
             healthCheckInterval: options.healthCheckInterval || 30000, // 30 seconds
             connectionTimeout: options.connectionTimeout || 10000, // 10 seconds
             enableHealthCheck: options.enableHealthCheck !== false,
+            perpetualRetry: options.perpetualRetry !== false, // Enable perpetual retries by default
+            perpetualRetryInterval: options.perpetualRetryInterval || 10000, // 10 seconds for perpetual retries
             ...options
         };
         
@@ -159,15 +161,22 @@ class ConnectionManager extends EventEmitter {
      * @returns {Promise<boolean>} Connection success
      */
     async attemptConnection() {
-        if (this.connectionAttempts >= this.options.maxRetries) {
+        // Check if we should stop retrying (only if perpetual retry is disabled)
+        if (!this.options.perpetualRetry && this.connectionAttempts >= this.options.maxRetries) {
             this.setState(ConnectionState.ERROR, `Max retries (${this.options.maxRetries}) exceeded`);
             return false;
         }
-        
+
         this.connectionAttempts++;
+
+        // Display different messages for perpetual vs limited retries
+        const attemptInfo = this.options.perpetualRetry
+            ? `Attempt ${this.connectionAttempts} (perpetual retry enabled)`
+            : `Attempt ${this.connectionAttempts}/${this.options.maxRetries}`;
+
         this.setState(
             this.connectionAttempts === 1 ? ConnectionState.CONNECTING : ConnectionState.RECONNECTING,
-            `Attempt ${this.connectionAttempts}/${this.options.maxRetries}`
+            attemptInfo
         );
         
         try {
@@ -195,28 +204,40 @@ class ConnectionManager extends EventEmitter {
         } catch (error) {
             this.clearConnectionTimeout();
             console.error(`${this.serviceName} connection attempt ${this.connectionAttempts} failed:`, error.message);
-            
-            if (this.connectionAttempts < this.options.maxRetries) {
+
+            // Always schedule retry if perpetual retry is enabled, or if under max retries
+            if (this.options.perpetualRetry || this.connectionAttempts < this.options.maxRetries) {
                 this.scheduleRetry();
             } else {
                 this.setState(ConnectionState.ERROR, 'Max retries exceeded', error);
             }
-            
+
             return false;
         }
     }
     
     /**
-     * Schedule retry with exponential backoff
+     * Schedule retry with exponential backoff or perpetual interval
      */
     scheduleRetry() {
-        const delay = Math.min(
-            this.options.initialRetryDelay * Math.pow(this.options.retryMultiplier, this.connectionAttempts - 1),
-            this.options.maxRetryDelay
-        );
-        
-        console.log(`${this.serviceName}: Scheduling retry in ${delay}ms`);
-        
+        let delay;
+
+        if (this.options.perpetualRetry && this.connectionAttempts > 5) {
+            // After 5 attempts, use fixed perpetual retry interval
+            delay = this.options.perpetualRetryInterval;
+            if (this.connectionAttempts === 6) {
+                console.log(`🔄 ${this.serviceName}: PERPETUAL RETRY MODE ACTIVATED - will retry every ${delay}ms forever`);
+            }
+            console.log(`${this.serviceName}: Scheduling perpetual retry in ${delay}ms (attempt ${this.connectionAttempts})`);
+        } else {
+            // Use exponential backoff for initial attempts
+            delay = Math.min(
+                this.options.initialRetryDelay * Math.pow(this.options.retryMultiplier, this.connectionAttempts - 1),
+                this.options.maxRetryDelay
+            );
+            console.log(`${this.serviceName}: Scheduling retry in ${delay}ms (attempt ${this.connectionAttempts})`);
+        }
+
         this.retryTimer = setTimeout(() => {
             this.attemptConnection();
         }, delay);
@@ -274,6 +295,25 @@ class ConnectionManager extends EventEmitter {
             clearTimeout(this.retryTimer);
             this.retryTimer = null;
         }
+    }
+
+    /**
+     * Reset connection attempts (useful for restarting perpetual retry cycle)
+     */
+    resetConnectionAttempts() {
+        this.connectionAttempts = 0;
+        console.log(`${this.serviceName}: Connection attempts reset`);
+    }
+
+    /**
+     * Force reconnection (resets attempts and tries immediately)
+     */
+    forceReconnect() {
+        console.log(`${this.serviceName}: Forcing reconnection...`);
+        this.clearRetryTimer();
+        this.resetConnectionAttempts();
+        this.setState(ConnectionState.DISCONNECTED, 'Force reconnect requested');
+        return this.reconnect(true);
     }
     
     /**
