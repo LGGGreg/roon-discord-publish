@@ -117,7 +117,10 @@ function createHelpWindow() {
         title: 'Help - Roon Discord Rich Presence',
         parent: mainWindow,
         modal: false,
-        show: false
+        show: false,
+        resizable: true,
+        minimizable: true,
+        maximizable: true
     });
 
     // Load the help page
@@ -965,6 +968,19 @@ ipcMain.handle('open-help-window', async (event, section) => {
         return { success: true };
     } catch (error) {
         console.error('Failed to open help window:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('close-help-window', async (event) => {
+    try {
+        if (helpWindow) {
+            helpWindow.close();
+            helpWindow = null;
+        }
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to close help window:', error);
         return { success: false, error: error.message };
     }
 });

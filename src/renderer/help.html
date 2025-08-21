@@ -7,10 +7,21 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/components.css">
     <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            height: 100vh;
+        }
+
         .help-container {
             max-width: 900px;
             margin: 0 auto;
             padding: 2rem;
+            padding-top: 5rem; /* Account for fixed back button */
+            min-height: 100vh;
+            box-sizing: border-box;
         }
         
         .help-section {
@@ -142,7 +153,7 @@
     </style>
 </head>
 <body>
-    <button class="back-button" onclick="window.history.back()">← Back to App</button>
+    <button class="back-button" onclick="closeHelpWindow()">← Back to App</button>
     
     <div class="help-container">
         <h1 style="color: var(--text-primary); text-align: center; margin-bottom: 2rem; font-size: 2.5rem;">
@@ -342,6 +353,17 @@
     </div>
 
     <script>
+        // Function to close the help window
+        function closeHelpWindow() {
+            if (window.require) {
+                const { ipcRenderer } = window.require('electron');
+                ipcRenderer.invoke('close-help-window');
+            } else {
+                // Fallback: close the window
+                window.close();
+            }
+        }
+
         // Smooth scrolling for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
@@ -355,6 +377,10 @@
                 }
             });
         });
+
+        // Ensure the page is scrollable
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.overflow = 'auto';
     </script>
 </body>
 </html>
