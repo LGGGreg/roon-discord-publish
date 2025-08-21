@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Menu, Tray, ipcMain, dialog, shell, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -70,35 +70,125 @@ function createWindow() {
         mainWindow = null;
     });
 
-    // Handle minimize to tray (disabled for now)
+    // Handle minimize to tray
     mainWindow.on('minimize', (event) => {
-        // Tray functionality will be implemented later
-        // For now, just minimize normally
+        if (tray && configManager.get('app.minimize_to_tray', true)) {
+            // Hide window instead of minimizing to taskbar
+            event.preventDefault();
+            mainWindow.hide();
+        }
     });
 
-    // Handle close (quit app for now, will change when tray is implemented)
+    // Handle close - minimize to tray instead of quitting
     mainWindow.on('close', (event) => {
-        // For now, just quit the app
-        // Later we'll implement minimize to tray
+        if (!isQuitting && tray) {
+            // Prevent the window from closing and hide it instead
+            event.preventDefault();
+            mainWindow.hide();
+
+            // Show notification on first minimize (optional)
+            if (process.platform === 'win32') {
+                tray.displayBalloon({
+                    iconType: 'info',
+                    title: 'Roon Discord Rich Presence',
+                    content: 'Application was minimized to tray'
+                });
+            }
+        }
     });
 }
 
 function createTray() {
-    // Create tray icon - use a simple built-in icon for now
-    // We'll create a proper icon later
     try {
-        // Try to create tray with a simple icon
-        const iconPath = path.join(__dirname, '../../assets/icon.svg');
+        // Use the existing PNG icon for the tray
+        const iconPath = path.join(__dirname, '../../assets/icon.png');
 
-        // For now, let's skip the tray if we can't create it
-        if (fs.existsSync(iconPath)) {
-            // SVG not supported for tray, skip for now
-            console.log('Tray icon creation skipped - will implement proper PNG icon later');
+        if (!fs.existsSync(iconPath)) {
+            console.log('Tray icon not found at:', iconPath);
             return;
         }
+
+        // Create the tray icon
+        const icon = nativeImage.createFromPath(iconPath);
+
+        // Resize icon for tray (16x16 on Windows/Linux, 22x22 on macOS)
+        const trayIcon = icon.resize({ width: 16, height: 16 });
+
+        tray = new Tray(trayIcon);
+
+        // Set tooltip
+        tray.setToolTip('Roon Discord Rich Presence');
+
+        // Create context menu
+        const contextMenu = Menu.buildFromTemplate([
+            {
+                label: 'Show',
+                click: () => {
+                    if (mainWindow) {
+                        mainWindow.show();
+                        mainWindow.focus();
+                    }
+                }
+            },
+            {
+                label: 'Hide',
+                click: () => {
+                    if (mainWindow) {
+                        mainWindow.hide();
+                    }
+                }
+            },
+            { type: 'separator' },
+            {
+                label: 'Settings',
+                click: () => {
+                    if (mainWindow) {
+                        mainWindow.show();
+                        mainWindow.focus();
+                        // Switch to config tab
+                        mainWindow.webContents.send('switch-tab', 'config');
+                    }
+                }
+            },
+            { type: 'separator' },
+            {
+                label: 'About',
+                click: () => {
+                    dialog.showMessageBox(mainWindow, {
+                        type: 'info',
+                        title: 'About',
+                        message: 'Roon Discord Rich Presence',
+                        detail: 'A bridge between Roon and Discord to show your music status.\n\nVersion: 1.0.0'
+                    });
+                }
+            },
+            {
+                label: 'Quit',
+                click: () => {
+                    isQuitting = true;
+                    app.quit();
+                }
+            }
+        ]);
+
+        tray.setContextMenu(contextMenu);
+
+        // Handle tray click (show/hide window)
+        tray.on('click', () => {
+            if (mainWindow) {
+                if (mainWindow.isVisible()) {
+                    mainWindow.hide();
+                } else {
+                    mainWindow.show();
+                    mainWindow.focus();
+                }
+            }
+        });
+
+        console.log('✅ System tray created successfully');
+
     } catch (error) {
-        console.log('Tray creation failed:', error.message);
-        return;
+        console.error('❌ Failed to create system tray:', error.message);
     }
 }
 
@@ -785,14 +875,22 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-    // On macOS, keep app running even when all windows are closed
-    if (process.platform !== 'darwin') {
+    // With tray functionality, don't quit when all windows are closed
+    // The app will continue running in the system tray
+    // Only quit if explicitly requested or on macOS without tray
+    if (process.platform === 'darwin' && !tray) {
         app.quit();
     }
 });
 
 app.on('before-quit', () => {
     isQuitting = true;
+
+    // Destroy tray
+    if (tray) {
+        tray.destroy();
+        tray = null;
+    }
 });
 
 // Configuration IPC handlers
