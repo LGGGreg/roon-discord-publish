@@ -18,20 +18,21 @@
 }
 
 .config-group {
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--bg-card);
     backdrop-filter: blur(10px);
     border-radius: 12px;
     padding: 2rem;
     margin-bottom: 1.5rem;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 20px var(--shadow-light);
+    border: 1px solid var(--border-primary);
 }
 
 .config-group h3 {
-    color: #2c3e50;
+    color: var(--text-primary);
     margin-bottom: 1.5rem;
     font-size: 1.3rem;
     font-weight: 600;
-    border-bottom: 2px solid #667eea;
+    border-bottom: 2px solid var(--accent-primary);
     padding-bottom: 0.5rem;
 }
 
@@ -44,7 +45,7 @@
 
 .form-group label {
     font-weight: 500;
-    color: #2c3e50;
+    color: var(--text-primary);
     min-width: 120px;
     display: flex;
     align-items: center;
@@ -55,45 +56,47 @@
 .form-group input[type="password"] {
     flex: 1;
     padding: 0.75rem;
-    border: 2px solid #e9ecef;
+    border: 2px solid var(--border-primary);
     border-radius: 8px;
     font-size: 0.9rem;
     transition: border-color 0.2s ease;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
 }
 
 .form-group input[type="text"]:focus,
 .form-group input[type="password"]:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.1);
 }
 
 .form-group input[type="checkbox"] {
     width: 18px;
     height: 18px;
-    accent-color: #667eea;
+    accent-color: var(--accent-primary);
 }
 
 .test-btn {
-    background: #27ae60;
+    background: var(--status-success);
     color: white;
     border: none;
     white-space: nowrap;
 }
 
 .test-btn:hover {
-    background: #229954;
+    background: #22c55e;
 }
 
 .help-text {
-    color: #666;
+    color: var(--text-secondary);
     font-size: 0.85rem;
     margin-top: 0.5rem;
     line-height: 1.4;
 }
 
 .help-text a {
-    color: #667eea;
+    color: var(--accent-primary);
     text-decoration: none;
 }
 
@@ -111,17 +114,18 @@
 
 /* Configuration Status */
 .config-status {
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--bg-card);
     backdrop-filter: blur(10px);
     border-radius: 12px;
     padding: 1.5rem;
     margin: 1.5rem 0;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    border-left: 4px solid #667eea;
+    box-shadow: 0 4px 20px var(--shadow-light);
+    border-left: 4px solid var(--accent-primary);
+    border: 1px solid var(--border-primary);
 }
 
 .status-summary h3 {
-    color: #2c3e50;
+    color: var(--text-primary);
     margin-bottom: 1rem;
     font-size: 1.1rem;
     font-weight: 600;
@@ -143,23 +147,23 @@
 }
 
 .status-item.configured {
-    background: rgba(39, 174, 96, 0.1);
-    color: #27ae60;
+    background: rgba(74, 222, 128, 0.1);
+    color: var(--status-success);
 }
 
 .status-item.missing {
-    background: rgba(231, 76, 60, 0.1);
-    color: #e74c3c;
+    background: rgba(248, 113, 113, 0.1);
+    color: var(--status-error);
 }
 
 .status-item.optional {
-    background: rgba(149, 165, 166, 0.1);
-    color: #95a5a6;
+    background: rgba(128, 128, 128, 0.1);
+    color: var(--text-muted);
 }
 
 .status-item.pending {
-    background: rgba(243, 156, 18, 0.1);
-    color: #f39c12;
+    background: rgba(251, 191, 36, 0.1);
+    color: var(--status-warning);
 }
 
 .status-icon {
@@ -192,9 +196,10 @@
 }
 
 .logs-container {
-    background: rgba(0, 0, 0, 0.8);
+    background: var(--bg-primary);
     border-radius: 12px;
     padding: 1rem;
+    border: 1px solid var(--border-primary);
     height: 500px;
     overflow-y: auto;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
