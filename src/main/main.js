@@ -14,6 +14,7 @@ const Logger = require('../utils/Logger');
 
 // Keep a global reference of the window object
 let mainWindow;
+let helpWindow;
 let tray = null;
 let isQuitting = false;
 
@@ -98,6 +99,41 @@ function createWindow() {
     });
 }
 
+function createHelpWindow() {
+    // Don't create multiple help windows
+    if (helpWindow) {
+        helpWindow.focus();
+        return;
+    }
+
+    helpWindow = new BrowserWindow({
+        width: 1000,
+        height: 700,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        },
+        icon: path.join(__dirname, '../../assets/icon.png'),
+        title: 'Help - Roon Discord Rich Presence',
+        parent: mainWindow,
+        modal: false,
+        show: false
+    });
+
+    // Load the help page
+    helpWindow.loadFile(path.join(__dirname, '../renderer/help.html'));
+
+    // Show when ready
+    helpWindow.once('ready-to-show', () => {
+        helpWindow.show();
+    });
+
+    // Clean up reference when closed
+    helpWindow.on('closed', () => {
+        helpWindow = null;
+    });
+}
+
 function createTray() {
     try {
         // Use the existing PNG icon for the tray
@@ -148,6 +184,12 @@ function createTray() {
                         // Switch to config tab
                         mainWindow.webContents.send('switch-tab', 'config');
                     }
+                }
+            },
+            {
+                label: 'Help',
+                click: () => {
+                    createHelpWindow();
                 }
             },
             { type: 'separator' },
@@ -900,6 +942,29 @@ ipcMain.handle('open-external', async (event, url) => {
         return { success: true };
     } catch (error) {
         console.error('Failed to open external URL:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('open-help-window', async (event, section) => {
+    try {
+        createHelpWindow();
+
+        // If a section is specified, navigate to it after the window loads
+        if (section && helpWindow) {
+            helpWindow.webContents.once('did-finish-load', () => {
+                helpWindow.webContents.executeJavaScript(`
+                    const element = document.getElementById('${section}');
+                    if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                `);
+            });
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to open help window:', error);
         return { success: false, error: error.message };
     }
 });

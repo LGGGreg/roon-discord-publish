@@ -5,14 +5,13 @@
  */
 async function openHelpWindow() {
     try {
-        // Use IPC to open external links
+        // Use IPC to open help window
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
-            const helpPath = new URL('../help.html', window.location.href).href;
-            await ipcRenderer.invoke('open-external', helpPath);
+            await ipcRenderer.invoke('open-help-window');
         } else {
-            // Fallback: open in same window
-            window.open('../help.html', '_blank');
+            // Fallback: show inline help
+            showInlineHelp();
         }
     } catch (error) {
         console.error('Failed to open help window:', error);
@@ -48,11 +47,10 @@ async function openHelpSection(section) {
     try {
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
-            const helpPath = new URL('../help.html', window.location.href).href + '#' + section;
-            await ipcRenderer.invoke('open-external', helpPath);
+            await ipcRenderer.invoke('open-help-window', section);
         } else {
-            // Fallback: open in same window
-            window.open('../help.html#' + section, '_blank');
+            // Fallback: show inline help for the section
+            showInlineHelp(section);
         }
     } catch (error) {
         console.error('Failed to open help section:', error);
@@ -60,6 +58,75 @@ async function openHelpSection(section) {
         // Fallback to opening the full help
         openHelpWindow();
     }
+}
+
+/**
+ * Show inline help as a fallback when IPC is not available
+ * @param {string} section - Optional section to focus on
+ */
+function showInlineHelp(section) {
+    const helpContent = `
+        <div style="max-width: 800px; margin: 2rem auto; padding: 2rem; background: var(--bg-card); border-radius: 12px; color: var(--text-primary);">
+            <h1 style="color: var(--accent-primary); text-align: center; margin-bottom: 2rem;">🎵 Roon Discord Rich Presence Help</h1>
+
+            <div style="margin-bottom: 2rem;">
+                <h2 style="color: var(--accent-primary);">🎮 Discord Setup</h2>
+                <ol style="color: var(--text-secondary); line-height: 1.6;">
+                    <li>Go to <strong>https://discord.com/developers/applications</strong></li>
+                    <li>Click "New Application" and enter a name</li>
+                    <li>Copy the "Application ID" from General Information</li>
+                    <li>Paste it into the Discord Client ID field in this app</li>
+                </ol>
+            </div>
+
+            <div style="margin-bottom: 2rem;">
+                <h2 style="color: var(--accent-primary);">🎵 Roon Configuration</h2>
+                <ol style="color: var(--text-secondary); line-height: 1.6;">
+                    <li>Ensure "Use Discovery" is enabled for automatic connection</li>
+                    <li>Make sure your Roon Core is running on the same network</li>
+                    <li>Accept the pairing request that appears in Roon</li>
+                    <li>Go to Extensions in Roon and enable "Discord Rich Presence"</li>
+                </ol>
+            </div>
+
+            <div style="margin-bottom: 2rem;">
+                <h2 style="color: var(--accent-primary);">🔧 Troubleshooting</h2>
+                <ul style="color: var(--text-secondary); line-height: 1.6;">
+                    <li><strong>Discord not showing status:</strong> Check Client ID and Discord privacy settings</li>
+                    <li><strong>Can't connect to Roon:</strong> Ensure Roon Core is running and accept pairing request</li>
+                    <li><strong>No album artwork:</strong> Verify Imgur Client ID or check internet connection</li>
+                </ul>
+            </div>
+
+            <div style="text-align: center; margin-top: 2rem;">
+                <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: var(--accent-primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer;">Close Help</button>
+            </div>
+        </div>
+    `;
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 10000;
+        overflow-y: auto;
+        padding: 2rem;
+    `;
+    overlay.innerHTML = helpContent;
+
+    // Add click outside to close
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.remove();
+        }
+    });
+
+    document.body.appendChild(overlay);
 }
 
 /**
