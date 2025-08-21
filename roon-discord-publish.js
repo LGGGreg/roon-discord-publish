@@ -382,11 +382,7 @@ async function setActivityStopped() {
 }
 
 DiscordRPC.register(settings.discord.clientId);
-if (settings.app.auto_shutdown) {
-    setTimeout(() => {
-        process.exit(0);
-    }, 1000 * 60 * 30);
-}
+// Auto shutdown feature removed - app now runs indefinitely
 
 const roon = new RoonApi({
     extension_id: 'moe.tdr.roon-discord-rp',

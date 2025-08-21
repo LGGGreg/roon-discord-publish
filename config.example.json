@@ -19,7 +19,6 @@
   },
   // App configuration
   "app": {
-    "auto_shutdown": false,
     "use_discovery": true
   }
 }

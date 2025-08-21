@@ -33,7 +33,6 @@ class ConfigManager extends EventEmitter {
                 secret: ""
             },
             app: {
-                auto_shutdown: false,
                 use_discovery: true,
                 auto_start: false,
                 minimize_to_tray: true

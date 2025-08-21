@@ -14,8 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
         roonZoneId: document.getElementById('roon-zone-id'),
         roonUseDiscovery: document.getElementById('roon-use-discovery'),
         appAutoStart: document.getElementById('app-auto-start'),
-        appMinimizeToTray: document.getElementById('app-minimize-to-tray'),
-        appAutoShutdown: document.getElementById('app-auto-shutdown')
+        appMinimizeToTray: document.getElementById('app-minimize-to-tray')
     };
     
     async function loadConfiguration() {
@@ -38,7 +37,6 @@ document.addEventListener('DOMContentLoaded', () => {
             configForm.roonUseDiscovery.checked = config.app?.use_discovery !== false;
             configForm.appAutoStart.checked = config.app?.auto_start === true;
             configForm.appMinimizeToTray.checked = config.app?.minimize_to_tray !== false;
-            configForm.appAutoShutdown.checked = config.app?.auto_shutdown === true;
 
             if (window.addLogEntry) {
                 window.addLogEntry('Configuration loaded successfully', 'success');
@@ -73,8 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 app: {
                     use_discovery: configForm.roonUseDiscovery.checked,
                     auto_start: configForm.appAutoStart.checked,
-                    minimize_to_tray: configForm.appMinimizeToTray.checked,
-                    auto_shutdown: configForm.appAutoShutdown.checked
+                    minimize_to_tray: configForm.appMinimizeToTray.checked
                 }
             };
 
