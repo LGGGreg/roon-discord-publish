@@ -188,16 +188,16 @@
             
             <h3>Step 1: Create a Discord Application</h3>
             <ol>
-                <li>Go to the <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a></li>
+                <li>Go to <strong>https://discord.com/developers/applications</strong></li>
                 <li>Click <strong>"New Application"</strong></li>
                 <li>Enter a name like <code>My Music Status</code> or <code>Roon Rich Presence</code></li>
                 <li>Click <strong>"Create"</strong></li>
             </ol>
-            
-            <h3>Step 2: Get Your Client ID</h3>
+
+            <h3>Step 2: Get Your Application ID</h3>
             <ol>
                 <li>In your new application, go to the <strong>"General Information"</strong> tab</li>
-                <li>Copy the <strong>"Application ID"</strong> (this is your Client ID)</li>
+                <li>Copy the <strong>"Application ID"</strong></li>
                 <li>Paste this ID into the Discord Client ID field in the app configuration</li>
             </ol>
             
@@ -260,26 +260,18 @@
 
             <h3>Step 1: Create a Spotify App</h3>
             <ol>
-                <li>Go to the <a href="https://developer.spotify.com/dashboard" target="_blank">Spotify Developer Dashboard</a></li>
+                <li>Go to <strong>https://developer.spotify.com/dashboard</strong></li>
                 <li>Log in with your Spotify account</li>
                 <li>Click <strong>"Create an App"</strong></li>
-                <li>Fill in the details:
-                    <ul>
-                        <li><strong>App name:</strong> <code>Roon Discord Bridge</code></li>
-                        <li><strong>App description:</strong> <code>Bridge between Roon and Discord</code></li>
-                        <li><strong>Website:</strong> Leave blank or use a placeholder</li>
-                        <li><strong>Redirect URI:</strong> <code>http://localhost:3000/callback</code></li>
-                    </ul>
-                </li>
-                <li>Accept the terms and click <strong>"Create"</strong></li>
+                <li>Fill in the app details and create the app</li>
             </ol>
 
             <h3>Step 2: Get Your Credentials</h3>
             <ol>
-                <li>In your new app, click <strong>"Settings"</strong></li>
-                <li>Copy the <strong>"Client ID"</strong></li>
-                <li>Click <strong>"View client secret"</strong> and copy the <strong>"Client Secret"</strong></li>
-                <li>Enter both values in the app configuration</li>
+                <li>In your new app, copy the <strong>"Client ID"</strong></li>
+                <li>Click <strong>"Show Client Secret"</strong> and copy the <strong>"Client Secret"</strong></li>
+                <li>Enter the Client ID in the <code>spotify.client</code> field</li>
+                <li>Enter the Client Secret in the <code>spotify.secret</code> field</li>
             </ol>
 
             <div class="info">
@@ -293,25 +285,15 @@
 
             <h3>Step 1: Register an Imgur Application</h3>
             <ol>
-                <li>Go to <a href="https://api.imgur.com/oauth2/addclient" target="_blank">Imgur API Registration</a></li>
+                <li>Go to <strong>https://api.imgur.com/oauth2/addclient</strong></li>
                 <li>Log in or create an Imgur account</li>
-                <li>Fill in the application details:
-                    <ul>
-                        <li><strong>Application name:</strong> <code>Roon Discord Rich Presence</code></li>
-                        <li><strong>Authorization type:</strong> Select <strong>"Anonymous usage without user authorization"</strong></li>
-                        <li><strong>Authorization callback URL:</strong> Leave blank</li>
-                        <li><strong>Application website:</strong> Leave blank</li>
-                        <li><strong>Email:</strong> Your email address</li>
-                        <li><strong>Description:</strong> <code>Uploads album artwork for Discord rich presence</code></li>
-                    </ul>
-                </li>
-                <li>Submit the form</li>
+                <li>Create an application and get your Client ID</li>
             </ol>
 
-            <h3>Step 2: Get Your Client ID</h3>
+            <h3>Step 2: Configure in App</h3>
             <ol>
-                <li>After registration, you'll receive your <strong>Client ID</strong></li>
-                <li>Copy this ID and paste it into the Imgur Client ID field in the app</li>
+                <li>Copy your Imgur Client ID</li>
+                <li>Paste it into the <code>imgur.clientId</code> field in the app configuration</li>
             </ol>
 
             <div class="warning">

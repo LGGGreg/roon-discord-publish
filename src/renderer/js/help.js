@@ -77,21 +77,18 @@ function showQuickHelp(service) {
 2. Enable "Use Discovery" for automatic connection
 3. Or disable it and enter your Roon Core IP manually
 4. Accept the pairing request that appears in Roon
-5. Select your zone from the Status page`,
+5. Go to Extensions in Roon and enable "Discord Rich Presence"`,
 
         spotify: `Spotify Setup (Optional):
 1. Go to https://developer.spotify.com/dashboard
-2. Click "Create an App"
-3. Fill in app details and create
-4. Copy the "Client ID" and "Client Secret"
-5. Enter both in the configuration`,
+2. Create an app and get Client ID and Client Secret
+3. Enter Client ID in spotify.client field
+4. Enter Client Secret in spotify.secret field`,
 
         imgur: `Imgur Setup (Optional):
 1. Go to https://api.imgur.com/oauth2/addclient
-2. Select "Anonymous usage without user authorization"
-3. Fill in application details
-4. Copy the Client ID you receive
-5. Enter it in the configuration`
+2. Create an application and get your Client ID
+3. Enter it in the imgur.clientId field`
     };
 
     const helpText = helpTexts[service];
