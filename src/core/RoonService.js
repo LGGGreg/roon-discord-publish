@@ -40,6 +40,14 @@ class RoonService extends ConnectionManager {
     }
     
     /**
+     * Check if service can connect (Roon doesn't require credentials)
+     * @returns {boolean} Can connect
+     */
+    canConnect() {
+        return true; // Roon can always attempt to connect (uses discovery or IP)
+    }
+
+    /**
      * Connect to Roon API
      * @returns {Promise<boolean>} Connection success
      */

@@ -1326,6 +1326,40 @@ ipcMain.handle('debug-end-performance-marker', (event, name) => {
     return debugManager.endPerformanceMarker(name);
 });
 
+// Helper function to get service status with credential checking
+function getServiceStatusForUI(service, serviceName) {
+    const stats = service.getStats();
+    let status = stats.state;
+    let details = stats.details;
+
+    // Check if service has required credentials
+    if (service.canConnect && !service.canConnect()) {
+        status = 'error';
+        switch (serviceName) {
+            case 'discord':
+                details = 'Required - Add Discord Client ID in Configuration';
+                break;
+            case 'spotify':
+                details = 'Optional - Add Spotify credentials for enhanced features';
+                break;
+            case 'imgur':
+                details = 'Optional - Add Imgur Client ID for album art sharing';
+                break;
+            default:
+                details = 'Missing required credentials';
+        }
+    } else if (!details) {
+        details = getDefaultStatusDetails(serviceName, status);
+    }
+
+    return {
+        service: serviceName,
+        status: status,
+        details: details,
+        error: stats.lastError
+    };
+}
+
 // Request service status (for initial load)
 ipcMain.handle('request-service-status', () => {
     console.log('Frontend requested service status');
@@ -1333,47 +1367,27 @@ ipcMain.handle('request-service-status', () => {
     // Send current status to renderer
     if (mainWindow) {
         if (discordService) {
-            const discordStats = discordService.getStats();
-            console.log('Sending Discord status:', discordStats);
-            mainWindow.webContents.send('service-status-changed', {
-                service: 'discord',
-                status: discordStats.state,
-                details: discordStats.details || 'Connection established',
-                error: discordStats.lastError
-            });
+            const statusData = getServiceStatusForUI(discordService, 'discord');
+            console.log('Sending Discord status:', statusData);
+            mainWindow.webContents.send('service-status-changed', statusData);
         }
 
         if (roonService) {
-            const roonStats = roonService.getStats();
-            console.log('Sending Roon status:', roonStats);
-            mainWindow.webContents.send('service-status-changed', {
-                service: 'roon',
-                status: roonStats.state,
-                details: roonStats.details || getDefaultStatusDetails('roon', roonStats.state),
-                error: roonStats.lastError
-            });
+            const statusData = getServiceStatusForUI(roonService, 'roon');
+            console.log('Sending Roon status:', statusData);
+            mainWindow.webContents.send('service-status-changed', statusData);
         }
 
         if (spotifyService) {
-            const spotifyStats = spotifyService.getStats();
-            console.log('Sending Spotify status:', spotifyStats);
-            mainWindow.webContents.send('service-status-changed', {
-                service: 'spotify',
-                status: spotifyStats.state,
-                details: spotifyStats.details || getDefaultStatusDetails('spotify', spotifyStats.state),
-                error: spotifyStats.lastError
-            });
+            const statusData = getServiceStatusForUI(spotifyService, 'spotify');
+            console.log('Sending Spotify status:', statusData);
+            mainWindow.webContents.send('service-status-changed', statusData);
         }
 
         if (imgurService) {
-            const imgurStats = imgurService.getStats();
-            console.log('Sending Imgur status:', imgurStats);
-            mainWindow.webContents.send('service-status-changed', {
-                service: 'imgur',
-                status: imgurStats.state,
-                details: imgurStats.details || getDefaultStatusDetails('imgur', imgurStats.state),
-                error: imgurStats.lastError
-            });
+            const statusData = getServiceStatusForUI(imgurService, 'imgur');
+            console.log('Sending Imgur status:', statusData);
+            mainWindow.webContents.send('service-status-changed', statusData);
         }
 
         // Send current track state to frontend if available

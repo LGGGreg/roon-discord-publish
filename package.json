@@ -20,6 +20,7 @@
     "build-mac": "electron-builder --mac",
     "build-linux": "electron-builder --linux",
     "test": "playwright test",
+    "test-config": "node test-config-validation.js",
     "test:gui": "playwright test --headed",
     "test:screenshot": "node test/cli/screenshot.js",
     "test:status": "node test/cli/status-check.js",
@@ -35,7 +36,10 @@
     "dist": "npm run build",
     "clean": "rimraf dist",
     "rebuild": "electron-rebuild",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "create-exe": "pkg launcher.js --targets node16-win-x64 --output \"Roon Discord Rich Presence.exe\"",
+    "create-distribution": "npm run create-exe && node create-distribution.js",
+    "package-clean": "rimraf working-build distribution* release-build final-build packager-dist portable* \"Roon Discord Rich Presence.exe\""
   },
   "engines": {
     "node": ">=16.13.2 <17.0.0",
@@ -62,6 +66,7 @@
     "electron-rebuild": "^3.2.9",
     "electron-reload": "^2.0.0-alpha.1",
     "playwright": "^1.54.2",
+    "rcedit": "^4.0.1",
     "rimraf": "^5.0.10",
     "screenshot-desktop": "^1.15.2"
   },

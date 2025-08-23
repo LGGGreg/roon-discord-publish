@@ -171,6 +171,23 @@
     font-size: 1rem;
 }
 
+.status-help {
+    font-size: 0.8em;
+    color: #666;
+    margin-top: 4px;
+    margin-left: 20px;
+    font-style: italic;
+}
+
+.status-help a {
+    color: #007acc;
+    text-decoration: none;
+}
+
+.status-help a:hover {
+    text-decoration: underline;
+}
+
 /* Logs Styles */
 .logs-section {
     max-width: 1000px;
@@ -264,12 +281,14 @@
     position: fixed;
     top: 20px;
     right: 20px;
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--bg-secondary);
     backdrop-filter: blur(10px);
     border-radius: 8px;
     padding: 1rem 1.5rem;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    border-left: 4px solid #667eea;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    border-left: 4px solid var(--accent-primary);
+    border: 1px solid var(--border-primary);
+    color: var(--text-primary);
     z-index: 1000;
     transform: translateX(100%);
     transition: transform 0.3s ease;
@@ -280,15 +299,15 @@
 }
 
 .notification.success {
-    border-left-color: #27ae60;
+    border-left-color: var(--success-color);
 }
 
 .notification.error {
-    border-left-color: #e74c3c;
+    border-left-color: var(--error-color);
 }
 
 .notification.warning {
-    border-left-color: #f39c12;
+    border-left-color: var(--warning-color);
 }
 
 /* Tooltips */
@@ -342,7 +361,8 @@
 }
 
 .modal-content {
-    background: white;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
     border-radius: 12px;
     padding: 2rem;
     max-width: 500px;
@@ -351,6 +371,7 @@
     overflow-y: auto;
     transform: scale(0.9);
     transition: transform 0.3s ease;
+    color: var(--text-primary);
 }
 
 .modal.show .modal-content {

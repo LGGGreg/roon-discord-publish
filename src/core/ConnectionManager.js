@@ -161,6 +161,12 @@ class ConnectionManager extends EventEmitter {
      * @returns {Promise<boolean>} Connection success
      */
     async attemptConnection() {
+        // Check if service can connect (has required credentials)
+        if (this.canConnect && !this.canConnect()) {
+            this.setState(ConnectionState.ERROR, 'Service not configured - missing required credentials');
+            return false;
+        }
+
         // Check if we should stop retrying (only if perpetual retry is disabled)
         if (!this.options.perpetualRetry && this.connectionAttempts >= this.options.maxRetries) {
             this.setState(ConnectionState.ERROR, `Max retries (${this.options.maxRetries}) exceeded`);

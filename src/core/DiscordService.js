@@ -39,11 +39,19 @@ class DiscordService extends ConnectionManager {
     }
     
     /**
+     * Check if service can connect (has required credentials)
+     * @returns {boolean} Can connect
+     */
+    canConnect() {
+        return !!(this.clientId && this.clientId.trim());
+    }
+
+    /**
      * Connect to Discord RPC
      * @returns {Promise<boolean>} Connection success
      */
     async connect() {
-        if (!this.clientId) {
+        if (!this.canConnect()) {
             throw new Error('Discord Client ID not configured');
         }
         

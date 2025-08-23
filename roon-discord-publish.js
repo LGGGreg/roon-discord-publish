@@ -13,7 +13,73 @@ let _core, _transport, _rpc, _image, _uploader, _spotifyApi;
 let reconnectionTimer, discordConnected = false, roonConnected = false, lastSentStatus = 0,
     spotifyTokenExpiration = Date.now();
 
-const settings = require('./config.json');
+// Load configuration with automatic setup
+let settings;
+try {
+    // Try to load config.json first
+    if (fs.existsSync('./config.json')) {
+        settings = require('./config.json');
+        console.log('✅ Loaded existing config.json');
+    } else {
+        console.log('🔧 Setting up configuration for first run...');
+
+        // Automatically copy example config if it exists
+        if (fs.existsSync('./config.example.json')) {
+            try {
+                fs.copyFileSync('./config.example.json', './config.json');
+                console.log('✅ Created config.json from template');
+
+                // Clear require cache and load the new config
+                delete require.cache[require.resolve('./config.json')];
+                settings = require('./config.json');
+                console.log('✅ Configuration ready for customization');
+                console.log('');
+                console.log('📝 You can now edit config.json to add your API keys:');
+                console.log('   - Discord Client ID');
+                console.log('   - Spotify Client ID & Secret (optional)');
+                console.log('   - Imgur Client ID (optional)');
+                console.log('   - Roon Core IP (optional - auto-discovery enabled)');
+                console.log('');
+            } catch (copyError) {
+                console.log('⚠️  Could not copy config.example.json:', copyError.message);
+                throw new Error('Failed to create config.json from template');
+            }
+        } else {
+            console.log('⚠️  config.example.json not found, creating minimal config...');
+            throw new Error('Template file missing');
+        }
+    }
+} catch (error) {
+    console.log('🛠️  Creating minimal default configuration...');
+
+    // Create minimal default settings
+    settings = {
+        core_ip: "",
+        app: {
+            use_discovery: true
+        },
+        discord: {
+            client_id: "1234567890123456789"
+        },
+        imgur: {
+            clientId: ""
+        },
+        spotify: {
+            client: "",
+            secret: ""
+        }
+    };
+
+    // Try to save default config
+    try {
+        fs.writeFileSync('./config.json', JSON.stringify(settings, null, 2));
+        console.log('✅ Created minimal config.json');
+        console.log('📝 Please edit config.json to add your API keys');
+    } catch (writeError) {
+        console.log('⚠️  Could not save config.json:', writeError.message);
+        console.log('⚠️  Running with default settings in memory');
+    }
+}
 
 const usedResults = {};
 const MAX_CACHED_RESULTS = 3;
@@ -133,17 +199,33 @@ async function addNewImageToCache(key, response) {
     if (recentResults.length > MAX_CACHED_RESULTS) {
         const oldestInputString = recentResults.pop();
         let recordToDelete = usedResults[oldestInputString];
-        if (recordToDelete && recordToDelete.deleteHash) {
-            const deleteResponse = await _uploader.delete(recordToDelete.deleteHash);
-            console.log(deleteResponse);
+        if (recordToDelete && recordToDelete.deleteHash && _uploader) {
+            try {
+                const deleteResponse = await _uploader.delete(recordToDelete.deleteHash);
+                console.log(deleteResponse);
+            } catch (error) {
+                console.log('Failed to delete image from Imgur:', error.message);
+            }
         }
         delete usedResults[oldestInputString];
     }
 }
 
 
-imgur.setClientID(settings.imgur.clientId);
-_uploader = new ImgurAnonymousUploader(settings.imgur.clientId);
+// Initialize Imgur only if client ID is provided
+if (settings.imgur && settings.imgur.clientId && settings.imgur.clientId.trim() !== '') {
+    try {
+        imgur.setClientID(settings.imgur.clientId);
+        _uploader = new ImgurAnonymousUploader(settings.imgur.clientId);
+        console.log('✅ Imgur uploader initialized');
+    } catch (error) {
+        console.log('⚠️  Imgur uploader failed to initialize:', error.message);
+        _uploader = null;
+    }
+} else {
+    console.log('ℹ️  Imgur client ID not configured - image uploading disabled');
+    _uploader = null;
+}
 _spotifyApi = new SpotifyWebApi({
     clientId: settings.spotify.client,
     clientSecret: settings.spotify.secret
@@ -197,12 +279,21 @@ function fetchImageResponse(image_key) {
                 if (err === true) {
                     reject(err);
                 }
-                console.log('Uploading image');
-                // wait for imgur
-                let uploadResponse = await _uploader.upload(path);
-                console.log(uploadResponse);
-                console.log('\\o/', uploadResponse.url);
-                await addNewImageToCache(image_key, uploadResponse);
+                if (_uploader) {
+                    console.log('Uploading image');
+                    // wait for imgur
+                    try {
+                        let uploadResponse = await _uploader.upload(path);
+                        console.log(uploadResponse);
+                        console.log('\\o/', uploadResponse.url);
+                        await addNewImageToCache(image_key, uploadResponse);
+                    } catch (error) {
+                        console.log('Failed to upload image to Imgur:', error.message);
+                        // Continue without image
+                    }
+                } else {
+                    console.log('Imgur not configured - skipping image upload');
+                }
                 resolve(uploadResponse.url);
                 fs.rm(path, () => {
                 });

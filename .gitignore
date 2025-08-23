@@ -75,3 +75,6 @@ roon-discord-config.json
 test-results/screenshots/
 
 test-results/
+
+# Test secrets (contains real API keys for testing)
+test/secrets.json

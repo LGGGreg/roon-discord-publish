@@ -42,6 +42,15 @@ class ImgurService extends ConnectionManager {
     }
     
     /**
+     * Check if service can connect (has required credentials)
+     * @returns {boolean} Can connect
+     */
+    canConnect() {
+        const clientId = this.configManager.get('imgur.clientId');
+        return !!(clientId && clientId.trim());
+    }
+
+    /**
      * Connect to Imgur API
      */
     async connect() {
@@ -55,7 +64,7 @@ class ImgurService extends ConnectionManager {
             // Get configuration
             const clientId = this.configManager.get('imgur.clientId');
             
-            if (!clientId) {
+            if (!this.canConnect()) {
                 throw new Error('Imgur client ID is required');
             }
             

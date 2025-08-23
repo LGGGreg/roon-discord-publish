@@ -285,15 +285,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="status-items">
                     <div class="status-item ${hasDiscord ? 'configured' : 'missing'}">
                         <span class="status-icon">${hasDiscord ? '✓' : '✗'}</span>
-                        <span>Discord: ${hasDiscord ? 'Configured' : 'Missing Client ID'}</span>
+                        <span>Discord: ${hasDiscord ? 'Configured' : 'Required - Add Client ID'}</span>
+                        ${!hasDiscord ? '<div class="status-help">Get your Client ID from <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a></div>' : ''}
                     </div>
                     <div class="status-item ${hasSpotify ? 'configured' : 'optional'}">
                         <span class="status-icon">${hasSpotify ? '✓' : '○'}</span>
-                        <span>Spotify: ${hasSpotify ? 'Configured' : 'Optional'}</span>
+                        <span>Spotify: ${hasSpotify ? 'Configured' : 'Optional - For track info'}</span>
+                        ${!hasSpotify ? '<div class="status-help">Add Client ID & Secret for enhanced track information</div>' : ''}
                     </div>
                     <div class="status-item ${hasImgur ? 'configured' : 'optional'}">
                         <span class="status-icon">${hasImgur ? '✓' : '○'}</span>
-                        <span>Imgur: ${hasImgur ? 'Configured' : 'Optional'}</span>
+                        <span>Imgur: ${hasImgur ? 'Configured' : 'Optional - For album art'}</span>
+                        ${!hasImgur ? '<div class="status-help">Add Client ID for album art sharing</div>' : ''}
                     </div>
                     <div class="status-item ${hasRoonPairing ? 'configured' : 'pending'}">
                         <span class="status-icon">${hasRoonPairing ? '✓' : '⏳'}</span>

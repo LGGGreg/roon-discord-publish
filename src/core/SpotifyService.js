@@ -28,6 +28,16 @@ class SpotifyService extends ConnectionManager {
     }
     
     /**
+     * Check if service can connect (has required credentials)
+     * @returns {boolean} Can connect
+     */
+    canConnect() {
+        const clientId = this.configManager.get('spotify.client');
+        const clientSecret = this.configManager.get('spotify.secret');
+        return !!(clientId && clientId.trim() && clientSecret && clientSecret.trim());
+    }
+
+    /**
      * Connect to Spotify API
      */
     async connect() {
@@ -42,7 +52,7 @@ class SpotifyService extends ConnectionManager {
             const clientId = this.configManager.get('spotify.client');
             const clientSecret = this.configManager.get('spotify.secret');
             
-            if (!clientId || !clientSecret) {
+            if (!this.canConnect()) {
                 throw new Error('Spotify client ID and secret are required');
             }
             

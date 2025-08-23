@@ -16,7 +16,10 @@ class ConfigManager extends EventEmitter {
         
         // Current configuration
         this.config = {};
-        
+
+        // File watcher for config changes
+        this.watcher = null;
+
         // Default configuration structure
         this.defaultConfig = {
             core_ip: "",
@@ -44,21 +47,31 @@ class ConfigManager extends EventEmitter {
         
         // Load configuration on initialization
         this.loadConfig();
+
+        // Start watching for config file changes
+        this.startWatching();
     }
     
     /**
      * Load configuration from file
      * @returns {Object} The loaded configuration
      */
-    loadConfig() {
+    loadConfig(isReload = false) {
         try {
             if (fs.existsSync(this.configPath)) {
                 const configData = fs.readFileSync(this.configPath, 'utf8');
-                this.config = JSON.parse(configData);
-                
+                const newConfig = JSON.parse(configData);
+
                 // Merge with defaults to ensure all required fields exist
-                this.config = this.mergeWithDefaults(this.config);
-                
+                const mergedConfig = this.mergeWithDefaults(newConfig);
+
+                // If this is a reload, detect changes and emit events
+                if (isReload && this.config) {
+                    this.detectAndEmitChanges(this.config, mergedConfig);
+                }
+
+                this.config = mergedConfig;
+
                 this.emit('config-loaded', this.config);
                 console.log('Configuration loaded successfully');
                 return this.config;
@@ -297,6 +310,88 @@ class ConfigManager extends EventEmitter {
             console.error('Error importing configuration:', error);
             this.emit('config-error', error);
             return false;
+        }
+    }
+
+    /**
+     * Detect changes between old and new config and emit change events
+     */
+    detectAndEmitChanges(oldConfig, newConfig) {
+        const changes = this.getConfigChanges(oldConfig, newConfig);
+
+        for (const change of changes) {
+            console.log(`Config changed: ${change.path} = ${change.newValue}`);
+            this.emit('config-changed', change.path, change.newValue);
+        }
+    }
+
+    /**
+     * Get list of changes between two config objects
+     */
+    getConfigChanges(oldConfig, newConfig, prefix = '') {
+        const changes = [];
+
+        const checkObject = (oldObj, newObj, path) => {
+            // Check all keys in new object
+            for (const key in newObj) {
+                const fullPath = path ? `${path}.${key}` : key;
+                const oldValue = oldObj ? oldObj[key] : undefined;
+                const newValue = newObj[key];
+
+                if (typeof newValue === 'object' && newValue !== null && !Array.isArray(newValue)) {
+                    // Recursively check nested objects
+                    checkObject(oldValue, newValue, fullPath);
+                } else if (oldValue !== newValue) {
+                    // Value changed
+                    changes.push({
+                        path: fullPath,
+                        oldValue: oldValue,
+                        newValue: newValue
+                    });
+                }
+            }
+        };
+
+        checkObject(oldConfig, newConfig, prefix);
+        return changes;
+    }
+
+    /**
+     * Start watching config file for changes
+     */
+    startWatching() {
+        if (this.watcher) {
+            this.watcher.close();
+        }
+
+        try {
+            this.watcher = fs.watch(this.configPath, (eventType, filename) => {
+                if (eventType === 'change') {
+                    console.log('Config file changed, reloading...');
+
+                    // Debounce rapid file changes
+                    clearTimeout(this.reloadTimeout);
+                    this.reloadTimeout = setTimeout(() => {
+                        this.loadConfig(true); // Pass true to indicate this is a reload
+                        this.emit('config-reloaded', this.config);
+                    }, 500);
+                }
+            });
+
+            console.log('Started watching config file for changes');
+        } catch (error) {
+            console.warn('Could not watch config file:', error.message);
+        }
+    }
+
+    /**
+     * Stop watching config file
+     */
+    stopWatching() {
+        if (this.watcher) {
+            this.watcher.close();
+            this.watcher = null;
+            console.log('Stopped watching config file');
         }
     }
 }

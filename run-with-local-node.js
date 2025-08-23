@@ -30,13 +30,28 @@ if (!fs.existsSync(localNodePath)) {
     process.exit(1);
 }
 
-// Check if config.json exists
+// Check if config.json exists, create it if needed
 const configPath = path.join(__dirname, 'config.json');
+const exampleConfigPath = path.join(__dirname, 'config.example.json');
+
 if (!fs.existsSync(configPath)) {
-    console.error('❌ Error: config.json not found!');
-    console.log('📝 Please copy config.example.json to config.json and fill in your settings.');
-    console.log('   See README.md for setup instructions.');
-    process.exit(1);
+    console.log('🔧 Setting up configuration for first run...');
+
+    if (fs.existsSync(exampleConfigPath)) {
+        try {
+            fs.copyFileSync(exampleConfigPath, configPath);
+            console.log('✅ Created config.json from template');
+            console.log('📝 You can edit config.json to customize your settings');
+        } catch (error) {
+            console.error('❌ Failed to create config.json:', error.message);
+            console.log('📝 Please manually copy config.example.json to config.json');
+            process.exit(1);
+        }
+    } else {
+        console.error('❌ Error: Neither config.json nor config.example.json found!');
+        console.log('📝 Please ensure config.example.json is present in the application directory.');
+        process.exit(1);
+    }
 }
 
 // Check if node_modules exists, if not install dependencies with local npm
