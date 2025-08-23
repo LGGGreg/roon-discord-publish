@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Red gradient background -->
+    <radialGradient id="redGradient" cx="0.3" cy="0.3" r="0.8">
+      <stop offset="0%" stop-color="#ff6666"/>
+      <stop offset="70%" stop-color="#ff4444"/>
+      <stop offset="100%" stop-color="#cc3333"/>
+    </radialGradient>
+
+    <!-- Shadow filter -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="3" dy="6" stdDeviation="4" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+
+    <!-- Inner glow -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Main background circle -->
+  <circle cx="128" cy="128" r="120" fill="url(#redGradient)" stroke="#aa2222" stroke-width="3" filter="url(#shadow)"/>
+
+  <!-- Inner highlight ring -->
+  <circle cx="128" cy="128" r="115" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+
+  <!-- Music notes with improved design -->
+  <g fill="white" filter="url(#glow)">
+    <!-- First note (left) -->
+    <g>
+      <!-- Note head (tilted oval) -->
+      <ellipse cx="95" cy="170" rx="18" ry="13" fill="white" transform="rotate(-20 95 170)"/>
+      <!-- Note stem -->
+      <rect x="110" y="70" width="6" height="100" fill="white" rx="3"/>
+      <!-- Note flag (elegant curve) -->
+      <path d="M 116 70 Q 145 75 150 95 Q 148 85 140 80 Q 130 75 116 73 Z" fill="white"/>
+    </g>
+
+    <!-- Second note (right) -->
+    <g>
+      <!-- Note head -->
+      <ellipse cx="155" cy="165" rx="18" ry="13" fill="white" transform="rotate(-20 155 165)"/>
+      <!-- Note stem -->
+      <rect x="170" y="65" width="6" height="100" fill="white" rx="3"/>
+    </g>
+
+    <!-- Connecting beam (curved for elegance) -->
+    <path d="M 116 73 Q 143 68 176 65 L 176 72 Q 143 75 116 80 Z" fill="white"/>
+
+    <!-- Musical staff lines (subtle background) -->
+    <g opacity="0.25" stroke="white" stroke-width="1.5">
+      <line x1="70" y1="120" x2="190" y2="120"/>
+      <line x1="70" y1="135" x2="190" y2="135"/>
+      <line x1="70" y1="150" x2="190" y2="150"/>
+      <line x1="70" y1="165" x2="190" y2="165"/>
+      <line x1="70" y1="180" x2="190" y2="180"/>
+    </g>
+
+    <!-- Treble clef accent (small) -->
+    <g transform="translate(200, 100) scale(0.3)" opacity="0.6">
+      <path d="M 0 0 Q -10 -20 0 -30 Q 15 -35 20 -20 Q 25 -5 15 10 Q 5 25 -5 20 Q -15 15 -10 5 Q -5 -5 5 0 Q 15 5 10 15 Q 5 25 -5 20" fill="white"/>
+    </g>
+  </g>
+
+  <!-- Outer glow ring -->
+  <circle cx="128" cy="128" r="125" fill="none" stroke="rgba(255,68,68,0.5)" stroke-width="1"/>
+</svg>

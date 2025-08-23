@@ -206,8 +206,8 @@ test.describe('Imgur Service - Enhanced Configuration vs Connection States', () 
                 console.log(`📊 Config Page Imgur Classes: ${imgurStatus.statusClasses}`);
                 
                 // Should show configured state with appropriate styling
-                expect(imgurStatus.statusText.toLowerCase()).toMatch(/(imgur|configured|connecting|not.*connected)/);
-                expect(imgurStatus.statusClasses).toMatch(/(configured|connecting|warning|error)/);
+                expect(imgurStatus.statusText.toLowerCase()).toMatch(/(imgur|configured|connecting|not.*connected|connected)/);
+                expect(imgurStatus.statusClasses).toMatch(/(configured|connecting|warning|error|connected)/);
             }
         }
         

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Help - Roon Discord Rich Presence</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            height: 100vh;
+        }
+
+        .help-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            padding-top: 5rem; /* Account for fixed back button */
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        
+        .help-section {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-primary);
+        }
+        
+        .help-section h2 {
+            color: var(--accent-primary);
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            border-bottom: 2px solid var(--accent-primary);
+            padding-bottom: 0.5rem;
+        }
+        
+        .help-section h3 {
+            color: var(--text-primary);
+            margin: 1.5rem 0 1rem 0;
+            font-size: 1.2rem;
+        }
+        
+        .help-section p, .help-section li {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 0.75rem;
+        }
+        
+        .help-section ol, .help-section ul {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .help-section code {
+            background: var(--bg-tertiary);
+            color: var(--accent-primary);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .help-section .warning {
+            background: rgba(251, 191, 36, 0.1);
+            border-left: 4px solid var(--status-warning);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+        
+        .help-section .info {
+            background: rgba(96, 165, 250, 0.1);
+            border-left: 4px solid var(--status-info);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+        
+        .help-section .success {
+            background: rgba(74, 222, 128, 0.1);
+            border-left: 4px solid var(--status-success);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+        
+        .help-section a {
+            color: var(--accent-primary);
+            text-decoration: none;
+        }
+        
+        .help-section a:hover {
+            text-decoration: underline;
+        }
+        
+        .back-button {
+            position: fixed;
+            top: 2rem;
+            left: 2rem;
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            z-index: 1000;
+        }
+        
+        .back-button:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+        
+        .toc {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-primary);
+        }
+        
+        .toc h3 {
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+        
+        .toc ul {
+            list-style: none;
+            margin-left: 0;
+        }
+        
+        .toc li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .toc a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 0.25rem 0;
+            display: block;
+        }
+        
+        .toc a:hover {
+            color: var(--accent-primary);
+        }
+    </style>
+</head>
+<body>
+    <button class="back-button" onclick="closeHelpWindow()">← Back to App</button>
+    
+    <div class="help-container">
+        <h1 style="color: var(--text-primary); text-align: center; margin-bottom: 2rem; font-size: 2.5rem;">
+            🎵 Roon Discord Rich Presence Help
+        </h1>
+        
+        <div class="toc">
+            <h3>📋 Table of Contents</h3>
+            <ul>
+                <li><a href="#overview">🔍 Overview</a></li>
+                <li><a href="#discord">🎮 Discord Setup</a></li>
+                <li><a href="#roon">🎵 Roon Configuration</a></li>
+                <li><a href="#spotify">🎧 Spotify Setup (Optional)</a></li>
+                <li><a href="#imgur">🖼️ Imgur Setup (Optional)</a></li>
+                <li><a href="#troubleshooting">🔧 Troubleshooting</a></li>
+            </ul>
+        </div>
+
+        <div class="help-section" id="overview">
+            <h2>🔍 Overview</h2>
+            <p>Roon Discord Rich Presence bridges your Roon music player with Discord, showing your currently playing music as your Discord status. This allows your friends to see what you're listening to in real-time.</p>
+            
+            <h3>Required Services</h3>
+            <ul>
+                <li><strong>Discord:</strong> Required for displaying your music status</li>
+                <li><strong>Roon:</strong> Your music player (Roon Core must be running)</li>
+            </ul>
+            
+            <h3>Optional Services</h3>
+            <ul>
+                <li><strong>Spotify:</strong> Enables links to tracks on Spotify</li>
+                <li><strong>Imgur:</strong> Hosts album artwork for better Discord integration</li>
+            </ul>
+            
+            <div class="info">
+                <strong>💡 Tip:</strong> You only need Discord and Roon to get started. Spotify and Imgur enhance the experience but aren't required.
+            </div>
+        </div>
+
+        <div class="help-section" id="discord">
+            <h2>🎮 Discord Setup</h2>
+            <p>To display your music status in Discord, you need to create a Discord application and get a Client ID.</p>
+            
+            <h3>Step 1: Create a Discord Application</h3>
+            <ol>
+                <li>Go to <strong>https://discord.com/developers/applications</strong></li>
+                <li>Click <strong>"New Application"</strong></li>
+                <li>Enter a name like <code>My Music Status</code> or <code>Roon Rich Presence</code></li>
+                <li>Click <strong>"Create"</strong></li>
+            </ol>
+
+            <h3>Step 2: Get Your Application ID</h3>
+            <ol>
+                <li>In your new application, go to the <strong>"General Information"</strong> tab</li>
+                <li>Copy the <strong>"Application ID"</strong></li>
+                <li>Paste this ID into the Discord Client ID field in the app configuration</li>
+            </ol>
+            
+            <div class="success">
+                <strong>✅ That's it!</strong> Discord setup is complete. Your music status will now appear in Discord when you're playing music through Roon.
+            </div>
+            
+            <h3>Customizing Your Rich Presence</h3>
+            <p>You can customize how your music appears in Discord:</p>
+            <ol>
+                <li>In the Discord Developer Portal, go to <strong>"Rich Presence" → "Art Assets"</strong></li>
+                <li>Upload custom images for different states (playing, paused, etc.)</li>
+                <li>Note the asset names and configure them in the app if needed</li>
+            </ol>
+        </div>
+
+        <div class="help-section" id="roon">
+            <h2>🎵 Roon Configuration</h2>
+            <p>Roon setup involves connecting to your Roon Core and selecting which zone to monitor.</p>
+            
+            <h3>Automatic Discovery (Recommended)</h3>
+            <ol>
+                <li>Ensure <strong>"Use Discovery"</strong> is enabled in the app configuration</li>
+                <li>Make sure your Roon Core is running on the same network</li>
+                <li>The app will automatically find and connect to your Roon Core</li>
+                <li>You'll see a pairing request in Roon - accept it</li>
+            </ol>
+            
+            <h3>Manual Configuration</h3>
+            <p>If automatic discovery doesn't work:</p>
+            <ol>
+                <li>Disable <strong>"Use Discovery"</strong> in the app configuration</li>
+                <li>Find your Roon Core's IP address:
+                    <ul>
+                        <li>In Roon, go to <strong>Settings → General → About</strong></li>
+                        <li>Look for the IP address under "Roon Core"</li>
+                    </ul>
+                </li>
+                <li>Enter this IP address in the <strong>"Roon Core IP"</strong> field</li>
+                <li>Save the configuration and restart the app</li>
+            </ol>
+            
+            <h3>Zone Selection</h3>
+            <p>Choose which Roon zone to monitor:</p>
+            <ol>
+                <li>Once connected, go to the Status page</li>
+                <li>You'll see a list of available zones</li>
+                <li>Select the zone you want to monitor</li>
+                <li>The app will now show what's playing in that zone</li>
+            </ol>
+            
+            <div class="warning">
+                <strong>⚠️ Important:</strong> Your Roon Core must be running and accessible on the network for the app to work.
+            </div>
+        </div>
+
+        <div class="help-section" id="spotify">
+            <h2>🎧 Spotify Setup (Optional)</h2>
+            <p>Adding Spotify integration allows the app to include Spotify links in your Discord status, making it easy for friends to listen to the same music.</p>
+
+            <h3>Step 1: Create a Spotify App</h3>
+            <ol>
+                <li>Go to <strong>https://developer.spotify.com/dashboard</strong></li>
+                <li>Log in with your Spotify account</li>
+                <li>Click <strong>"Create an App"</strong></li>
+                <li>Fill in the app details and create the app</li>
+            </ol>
+
+            <h3>Step 2: Get Your Credentials</h3>
+            <ol>
+                <li>In your new app, copy the <strong>"Client ID"</strong></li>
+                <li>Click <strong>"Show Client Secret"</strong> and copy the <strong>"Client Secret"</strong></li>
+                <li>Enter the Client ID in the <code>spotify.client</code> field</li>
+                <li>Enter the Client Secret in the <code>spotify.secret</code> field</li>
+            </ol>
+
+            <div class="info">
+                <strong>💡 Note:</strong> Spotify integration is optional. Without it, your Discord status will still show what you're playing, just without Spotify links.
+            </div>
+        </div>
+
+        <div class="help-section" id="imgur">
+            <h2>🖼️ Imgur Setup (Optional)</h2>
+            <p>Imgur integration uploads album artwork to display beautiful cover art in your Discord status.</p>
+
+            <h3>Step 1: Register an Imgur Application</h3>
+            <ol>
+                <li>Go to <strong>https://api.imgur.com/oauth2/addclient</strong></li>
+                <li>Log in or create an Imgur account</li>
+                <li>Create an application and get your Client ID</li>
+            </ol>
+
+            <h3>Step 2: Configure in App</h3>
+            <ol>
+                <li>Copy your Imgur Client ID</li>
+                <li>Paste it into the <code>imgur.clientId</code> field in the app configuration</li>
+            </ol>
+
+            <div class="warning">
+                <strong>⚠️ Privacy Note:</strong> Album artwork will be uploaded to Imgur and will be publicly accessible (but not easily discoverable). If you prefer not to upload artwork, leave this field empty.
+            </div>
+        </div>
+
+        <div class="help-section" id="troubleshooting">
+            <h2>🔧 Troubleshooting</h2>
+
+            <h3>Discord Not Showing Status</h3>
+            <ul>
+                <li>Verify your Discord Client ID is correct</li>
+                <li>Make sure Discord is running and you're logged in</li>
+                <li>Check that "Display current activity as status message" is enabled in Discord Settings → Activity Privacy</li>
+                <li>Restart both Discord and this app</li>
+            </ul>
+
+            <h3>Can't Connect to Roon</h3>
+            <ul>
+                <li>Ensure Roon Core is running and on the same network</li>
+                <li>Try disabling "Use Discovery" and entering the Roon Core IP manually</li>
+                <li>Check your firewall settings - Roon uses port 9100-9200</li>
+                <li>Make sure you accepted the pairing request in Roon</li>
+            </ul>
+
+            <h3>No Album Artwork</h3>
+            <ul>
+                <li>Verify your Imgur Client ID is correct</li>
+                <li>Check your internet connection</li>
+                <li>Some albums may not have artwork available</li>
+                <li>Try clearing the app cache and restarting</li>
+            </ul>
+
+            <h3>Spotify Links Not Working</h3>
+            <ul>
+                <li>Verify both Spotify Client ID and Client Secret are correct</li>
+                <li>Make sure the track is available on Spotify</li>
+                <li>Some tracks may not be found due to different metadata</li>
+            </ul>
+
+            <div class="info">
+                <strong>💡 Still having issues?</strong> Check the Logs tab in the app for detailed error messages that can help identify the problem.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to close the help window
+        function closeHelpWindow() {
+            if (window.require) {
+                const { ipcRenderer } = window.require('electron');
+                ipcRenderer.invoke('close-help-window');
+            } else {
+                // Fallback: close the window
+                window.close();
+            }
+        }
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Ensure the page is scrollable
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.overflow = 'auto';
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  // Optional: IP of your Roon instance
+  "core_ip": "",
+  // Optional: ID of the zoon to filter out
+  "zone_id": "",
+  // Discord app information
+  // Get this by going to https://discord.com/developers/applications , create an application, and copy the application id
+  "discord": {
+    "clientId": ""
+  },
+  // Get this by going to https://api.imgur.com/oauth2/addclient and createing an application
+  "imgur": {
+    "clientId": ""
+  },
+  // spotify app for buttons
+  "spotify": {
+    "client": "",
+    "secret": ""
+  },
+  // App configuration
+  "app": {
+    "use_discovery": true
+  }
+}
