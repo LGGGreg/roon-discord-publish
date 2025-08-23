@@ -101,26 +101,20 @@ test.describe('Discord Service - 3-State Flow', () => {
         const inputValue = await input.inputValue();
         console.log(`📝 Set Discord Client ID: ${clientId}, Actual value: ${inputValue}`);
 
-        // Save the configuration
-        const saveButton = page.locator('#save-config');
-        if (await saveButton.isVisible()) {
-            await saveButton.click();
-            console.log('💾 Clicked save configuration button');
-            await page.waitForTimeout(1000);
-        }
+        // Note: We don't manually save anymore - the "Save and Test Connection" button will do it
     }
 
-    async function clickTestConnection() {
-        const testButton = page.locator('#test-discord, button:has-text("Test Connection")').first();
+    async function clickSaveAndTestConnection() {
+        const testButton = page.locator('#test-discord, button:has-text("Save and Test Connection")').first();
         const isVisible = await testButton.isVisible();
-        console.log(`🔍 Test connection button visible: ${isVisible}`);
+        console.log(`🔍 Save and Test Connection button visible: ${isVisible}`);
 
         if (isVisible) {
             await testButton.click();
-            console.log('✅ Clicked test connection button');
-            await page.waitForTimeout(2000); // Wait longer for the test to complete
+            console.log('✅ Clicked Save and Test Connection button');
+            await page.waitForTimeout(3000); // Wait longer for save->test->connect flow
         } else {
-            console.log('❌ Test connection button not found');
+            console.log('❌ Save and Test Connection button not found');
             // Take screenshot to debug
             await page.screenshot({ path: 'test-results/screenshots/debug-no-test-button.png' });
         }
@@ -170,9 +164,9 @@ test.describe('Discord Service - 3-State Flow', () => {
         await setDiscordClientId(invalidClientId);
         await takeScreenshot('state-2a-invalid-entered');
         
-        // Click test connection
-        await clickTestConnection();
-        await takeScreenshot('state-2a-test-clicked');
+        // Click Save and Test Connection
+        await clickSaveAndTestConnection();
+        await takeScreenshot('state-2a-save-test-clicked');
 
         // Check if config file was actually updated
         const configContent = fs.readFileSync(configPath, 'utf8');
@@ -214,9 +208,9 @@ test.describe('Discord Service - 3-State Flow', () => {
         await setDiscordClientId(validClientId);
         await takeScreenshot('state-2b-valid-entered');
         
-        // Click test connection
-        await clickTestConnection();
-        await takeScreenshot('state-2b-test-clicked');
+        // Click Save and Test Connection
+        await clickSaveAndTestConnection();
+        await takeScreenshot('state-2b-save-test-clicked');
         
         // Navigate back to status page
         await navigateToStatus();
@@ -239,19 +233,25 @@ test.describe('Discord Service - 3-State Flow', () => {
         const connectedStatus = await getDiscordStatus();
         console.log(`📊 Discord Status after connection: ${connectedStatus.statusText} - ${connectedStatus.statusDetails}`);
         
-        // Should be connected or at least attempting connection (or show connection error)
-        // In test environment, Discord might not be available, so "Connection failed" is acceptable
+        // With the enhanced Save and Test Connection flow:
+        // 1. If test succeeds, it should automatically connect
+        // 2. In test environment, Discord might not be available, so "Connection failed" is acceptable
+        // 3. The key is that it should NOT be waiting for credentials anymore
+
         const isConnectedOrConnecting = connectedStatus.isConnected ||
                                        connectedStatus.isConnecting ||
                                        connectedStatus.statusDetails.toLowerCase().includes('connected') ||
                                        connectedStatus.statusDetails.toLowerCase().includes('ready') ||
-                                       connectedStatus.statusDetails.toLowerCase().includes('connection failed');
+                                       connectedStatus.statusDetails.toLowerCase().includes('connection failed') ||
+                                       connectedStatus.statusDetails.toLowerCase().includes('connecting');
 
         expect(isConnectedOrConnecting).toBeTruthy();
 
         // Most importantly, should NOT be waiting for credentials anymore
         expect(connectedStatus.isWaiting).toBeFalsy();
         expect(connectedStatus.statusDetails.toLowerCase()).not.toMatch(/(required|add.*client.*id)/);
+
+        console.log(`📊 Final Discord Status: ${connectedStatus.statusText} - ${connectedStatus.statusDetails}`);
         
         // Check config page also shows connected state
         await navigateToConfig();

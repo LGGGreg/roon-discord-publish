@@ -1325,35 +1325,70 @@ ipcMain.handle('testServiceConnection', async (event, serviceName, config) => {
             return { success: false, error: `Missing credentials for ${serviceName}` };
         }
 
-        // Temporarily update service credentials and test connection
-        const originalConfig = configManager.getAll();
-
-        // Update config with test credentials
-        configManager.set(`${serviceName}`, credentials, false); // Don't save to file
-
-        // Trigger service to use new credentials
-        service.emit('config-changed', `${serviceName}.clientId`, credentials.clientId || credentials.client);
-
-        // Wait a moment for the service to process the change
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Attempt connection
-        const result = await service.reconnect(true);
-
-        // Restore original config
-        configManager.config = originalConfig;
-
-        if (result) {
-            return { success: true, message: `${serviceName} connection successful` };
-        } else {
-            return { success: false, error: `${serviceName} connection failed` };
+        // Validate credential format
+        const validationResult = validateServiceCredentials(serviceName, credentials);
+        if (!validationResult.valid) {
+            return { success: false, error: validationResult.error };
         }
+
+        // For test connection, we validate credentials and save them
+        // The actual connection will be attempted by the save-and-test flow
+        logger.info('System', `${serviceName} credentials validated successfully`);
+        return { success: true, message: `${serviceName} credentials are valid` };
 
     } catch (error) {
         logger.error('System', `Error testing ${serviceName} connection:`, error);
         return { success: false, error: error.message };
     }
 });
+
+// Helper function to validate service credentials
+function validateServiceCredentials(serviceName, credentials) {
+    switch (serviceName) {
+        case 'discord':
+            const discordClientId = credentials.clientId;
+            if (!discordClientId || discordClientId.trim() === '') {
+                return { valid: false, error: 'Discord Client ID is required' };
+            }
+            // Basic Discord Client ID validation (should be numeric and 17-19 digits)
+            if (!/^\d{17,19}$/.test(discordClientId.trim())) {
+                return { valid: false, error: 'Discord Client ID should be 17-19 digits' };
+            }
+            return { valid: true };
+
+        case 'spotify':
+            const spotifyClient = credentials.client;
+            const spotifySecret = credentials.secret;
+            if (!spotifyClient || spotifyClient.trim() === '') {
+                return { valid: false, error: 'Spotify Client ID is required' };
+            }
+            if (!spotifySecret || spotifySecret.trim() === '') {
+                return { valid: false, error: 'Spotify Client Secret is required' };
+            }
+            // Basic Spotify credential validation (should be 32 character hex strings)
+            if (!/^[a-f0-9]{32}$/i.test(spotifyClient.trim())) {
+                return { valid: false, error: 'Spotify Client ID should be 32 character hex string' };
+            }
+            if (!/^[a-f0-9]{32}$/i.test(spotifySecret.trim())) {
+                return { valid: false, error: 'Spotify Client Secret should be 32 character hex string' };
+            }
+            return { valid: true };
+
+        case 'imgur':
+            const imgurClientId = credentials.clientId;
+            if (!imgurClientId || imgurClientId.trim() === '') {
+                return { valid: false, error: 'Imgur Client ID is required' };
+            }
+            // Basic Imgur Client ID validation (should be alphanumeric, typically 15 chars)
+            if (!/^[a-zA-Z0-9]{10,20}$/.test(imgurClientId.trim())) {
+                return { valid: false, error: 'Imgur Client ID should be 10-20 alphanumeric characters' };
+            }
+            return { valid: true };
+
+        default:
+            return { valid: false, error: `Unknown service: ${serviceName}` };
+    }
+}
 
 // Status Monitor IPC handlers
 ipcMain.handle('status-monitor-get-overall', () => {
@@ -1450,14 +1485,18 @@ ipcMain.handle('debug-end-performance-marker', (event, name) => {
     return debugManager.endPerformanceMarker(name);
 });
 
-// Helper function to get service status with credential checking
+// Helper function to get service status with enhanced configuration vs connection state tracking
 function getServiceStatusForUI(service, serviceName) {
     const stats = service.getStats();
     let status = stats.state;
     let details = stats.details;
 
-    // Check if service has required credentials
-    if (service.canConnect && !service.canConnect()) {
+    // Determine configuration state
+    const isConfigured = service.canConnect && service.canConnect();
+
+    // Enhanced state logic: Configuration vs Connection
+    if (!isConfigured) {
+        // Not configured - RED (missing credentials)
         status = 'error';
         switch (serviceName) {
             case 'discord':
@@ -1472,15 +1511,36 @@ function getServiceStatusForUI(service, serviceName) {
             default:
                 details = 'Missing required credentials';
         }
-    } else if (!details) {
-        details = getDefaultStatusDetails(serviceName, status);
+    } else {
+        // Configured - determine connection state
+        switch (stats.state) {
+            case 'connected':
+                status = 'connected'; // GREEN - configured and connected
+                details = details || 'Connected and ready';
+                break;
+            case 'connecting':
+            case 'reconnecting':
+                status = 'connecting'; // BLUE - configured and attempting connection
+                details = details || 'Connecting...';
+                break;
+            case 'disconnected':
+            case 'error':
+                status = 'configured'; // YELLOW - configured but not connected
+                details = details || `Configured but not connected${stats.lastError ? ': ' + stats.lastError.message : ''}`;
+                break;
+            default:
+                status = 'configured'; // YELLOW - configured but unknown state
+                details = details || 'Configured but connection status unknown';
+        }
     }
 
     return {
         service: serviceName,
         status: status,
         details: details,
-        error: stats.lastError
+        error: stats.lastError,
+        isConfigured: isConfigured,
+        connectionState: stats.state
     };
 }
 

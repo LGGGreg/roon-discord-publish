@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'connecting': { class: 'connecting', text: 'Connecting' },
         'connected': { class: 'connected', text: 'Connected' },
         'reconnecting': { class: 'connecting', text: 'Reconnecting' },
+        'configured': { class: 'warning', text: 'Configured' },
         'error': { class: 'error', text: 'Error' }
     };
 

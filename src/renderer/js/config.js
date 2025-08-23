@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Show configuration status
-            displayConfigurationStatus(config);
+            await displayConfigurationStatus(config);
 
         } catch (error) {
             console.error('Error loading configuration:', error);
@@ -125,48 +125,140 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-    
-    async function testConnection(service) {
+
+    function validateCredentialFormat(serviceName, serviceConfig) {
+        switch (serviceName) {
+            case 'discord':
+                const discordClientId = serviceConfig?.clientId;
+                if (!discordClientId || discordClientId.trim() === '') {
+                    return false;
+                }
+                // Discord Client ID should be 17-19 digits
+                return /^\d{17,19}$/.test(discordClientId.trim());
+
+            case 'spotify':
+                const spotifyClient = serviceConfig?.client;
+                const spotifySecret = serviceConfig?.secret;
+                if (!spotifyClient || spotifyClient.trim() === '' ||
+                    !spotifySecret || spotifySecret.trim() === '') {
+                    return false;
+                }
+                // Spotify credentials should be 32 character hex strings
+                return /^[a-f0-9]{32}$/i.test(spotifyClient.trim()) &&
+                       /^[a-f0-9]{32}$/i.test(spotifySecret.trim());
+
+            case 'imgur':
+                const imgurClientId = serviceConfig?.clientId;
+                if (!imgurClientId || imgurClientId.trim() === '') {
+                    return false;
+                }
+                // Imgur Client ID should be 10-20 alphanumeric characters
+                return /^[a-zA-Z0-9]{10,20}$/.test(imgurClientId.trim());
+
+            default:
+                return false;
+        }
+    }
+
+    function getCurrentConfig() {
+        // Get current form values
+        return {
+            discord: {
+                clientId: configForm.discordClientId?.value?.trim() || ''
+            },
+            spotify: {
+                client: configForm.spotifyClientId?.value?.trim() || '',
+                secret: configForm.spotifyClientSecret?.value?.trim() || ''
+            },
+            imgur: {
+                clientId: configForm.imgurClientId?.value?.trim() || ''
+            },
+            core_ip: configForm.roonCoreIp?.value?.trim() || '',
+            zone_id: configForm.roonZoneId?.value?.trim() || '',
+            app: {
+                use_discovery: configForm.roonUseDiscovery?.checked !== false,
+                minimize_to_tray: configForm.appMinimizeToTray?.checked !== false
+            }
+        };
+    }
+
+    async function saveAndTestConnection(service) {
         if (window.addLogEntry) {
-            window.addLogEntry(`Testing ${service} connection...`, 'info');
+            window.addLogEntry(`Saving and testing ${service} connection...`, 'info');
         }
 
         try {
-            // Get current form values
+            // Step 1: Save configuration first
+            await saveConfiguration();
+
+            // Step 2: Get current form values for testing
             const config = getCurrentConfig();
 
-            // Send test connection request to main process
+            // Step 3: Test connection with saved credentials
             const { ipcRenderer } = require('electron');
-            const result = await ipcRenderer.invoke('testServiceConnection', service.toLowerCase(), config);
+            const testResult = await ipcRenderer.invoke('testServiceConnection', service.toLowerCase(), config);
 
-            if (result.success) {
+            if (testResult.success) {
                 if (window.addLogEntry) {
                     window.addLogEntry(`${service} connection test successful`, 'success');
                 }
 
                 // Show success notification
                 if (window.showNotification) {
-                    window.showNotification(`${service} connection successful!`, 'success');
+                    window.showNotification(`${service} test successful! Connecting...`, 'success');
                 }
+
+                // Step 4: If test succeeds, establish actual connection
+                try {
+                    const connectResult = await ipcRenderer.invoke(`${service.toLowerCase()}-connect`);
+
+                    if (connectResult) {
+                        if (window.addLogEntry) {
+                            window.addLogEntry(`${service} connected successfully`, 'success');
+                        }
+
+                        if (window.showNotification) {
+                            window.showNotification(`${service} connected successfully!`, 'success');
+                        }
+                    } else {
+                        if (window.addLogEntry) {
+                            window.addLogEntry(`${service} connection failed after successful test`, 'warning');
+                        }
+
+                        if (window.showNotification) {
+                            window.showNotification(`${service} test passed but connection failed`, 'warning');
+                        }
+                    }
+                } catch (connectError) {
+                    console.error(`Error during ${service} connection:`, connectError);
+                    if (window.addLogEntry) {
+                        window.addLogEntry(`${service} connection error after successful test: ${connectError.message}`, 'warning');
+                    }
+
+                    if (window.showNotification) {
+                        window.showNotification(`${service} test passed but connection error occurred`, 'warning');
+                    }
+                }
+
             } else {
                 if (window.addLogEntry) {
-                    window.addLogEntry(`${service} connection test failed: ${result.error}`, 'error');
+                    window.addLogEntry(`${service} connection test failed: ${testResult.error}`, 'error');
                 }
 
                 // Show error notification
                 if (window.showNotification) {
-                    window.showNotification(`${service} connection failed: ${result.error}`, 'error');
+                    window.showNotification(`${service} test failed: ${testResult.error}`, 'error');
                 }
             }
         } catch (error) {
-            console.error(`Error testing ${service} connection:`, error);
+            console.error(`Error in save and test ${service} connection:`, error);
             if (window.addLogEntry) {
-                window.addLogEntry(`${service} connection test error: ${error.message}`, 'error');
+                window.addLogEntry(`${service} save and test error: ${error.message}`, 'error');
             }
 
             // Show error notification
             if (window.showNotification) {
-                window.showNotification(`${service} connection test error`, 'error');
+                window.showNotification(`${service} save and test error`, 'error');
             }
         }
     }
@@ -175,9 +267,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('save-config')?.addEventListener('click', saveConfiguration);
     document.getElementById('reset-config')?.addEventListener('click', resetConfiguration);
     
-    document.getElementById('test-discord')?.addEventListener('click', () => testConnection('Discord'));
-    document.getElementById('test-spotify')?.addEventListener('click', () => testConnection('Spotify'));
-    document.getElementById('test-imgur')?.addEventListener('click', () => testConnection('Imgur'));
+    document.getElementById('test-discord')?.addEventListener('click', () => saveAndTestConnection('Discord'));
+    document.getElementById('test-spotify')?.addEventListener('click', () => saveAndTestConnection('Spotify'));
+    document.getElementById('test-imgur')?.addEventListener('click', () => saveAndTestConnection('Imgur'));
     
     const exportBtn = document.getElementById('export-config');
     const importBtn = document.getElementById('import-config');
@@ -287,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function displayConfigurationStatus(config) {
+    async function displayConfigurationStatus(config) {
         // Create or update configuration status display
         let statusDiv = document.getElementById('config-status');
         if (!statusDiv) {
@@ -302,29 +394,39 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const hasDiscord = config.discord?.clientId;
-        const hasSpotify = config.spotify?.client && config.spotify?.secret;
-        const hasImgur = config.imgur?.clientId;
+        // Get actual service status from main process
+        const { ipcRenderer } = require('electron');
+        let serviceStatus = {};
+        try {
+            serviceStatus = await ipcRenderer.invoke('service-get-all-status');
+        } catch (error) {
+            console.error('Error getting service status:', error);
+        }
+
+        // Enhanced status determination for each service
+        const discordStatus = getEnhancedServiceStatus('discord', config.discord?.clientId, serviceStatus.discord, config.discord);
+        const spotifyStatus = getEnhancedServiceStatus('spotify', config.spotify?.client && config.spotify?.secret, serviceStatus.spotify, config.spotify);
+        const imgurStatus = getEnhancedServiceStatus('imgur', config.imgur?.clientId, serviceStatus.imgur, config.imgur);
         const hasRoonPairing = config.roonstate?.paired_core_id;
 
         statusDiv.innerHTML = `
             <div class="status-summary">
                 <h3>Configuration Status</h3>
                 <div class="status-items">
-                    <div class="status-item ${hasDiscord ? 'configured' : 'missing'}">
-                        <span class="status-icon">${hasDiscord ? '✓' : '✗'}</span>
-                        <span>Discord: ${hasDiscord ? 'Configured' : 'Required - Add Client ID'}</span>
-                        ${!hasDiscord ? '<div class="status-help">Get your Client ID from <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a></div>' : ''}
+                    <div class="status-item ${discordStatus.cssClass}">
+                        <span class="status-icon">${discordStatus.icon}</span>
+                        <span>Discord: ${discordStatus.text}</span>
+                        ${discordStatus.help ? `<div class="status-help">${discordStatus.help}</div>` : ''}
                     </div>
-                    <div class="status-item ${hasSpotify ? 'configured' : 'optional'}">
-                        <span class="status-icon">${hasSpotify ? '✓' : '○'}</span>
-                        <span>Spotify: ${hasSpotify ? 'Configured' : 'Optional - For track info'}</span>
-                        ${!hasSpotify ? '<div class="status-help">Add Client ID & Secret for enhanced track information</div>' : ''}
+                    <div class="status-item ${spotifyStatus.cssClass}">
+                        <span class="status-icon">${spotifyStatus.icon}</span>
+                        <span>Spotify: ${spotifyStatus.text}</span>
+                        ${spotifyStatus.help ? `<div class="status-help">${spotifyStatus.help}</div>` : ''}
                     </div>
-                    <div class="status-item ${hasImgur ? 'configured' : 'optional'}">
-                        <span class="status-icon">${hasImgur ? '✓' : '○'}</span>
-                        <span>Imgur: ${hasImgur ? 'Configured' : 'Optional - For album art'}</span>
-                        ${!hasImgur ? '<div class="status-help">Add Client ID for album art sharing</div>' : ''}
+                    <div class="status-item ${imgurStatus.cssClass}">
+                        <span class="status-icon">${imgurStatus.icon}</span>
+                        <span>Imgur: ${imgurStatus.text}</span>
+                        ${imgurStatus.help ? `<div class="status-help">${imgurStatus.help}</div>` : ''}
                     </div>
                     <div class="status-item ${hasRoonPairing ? 'configured' : 'pending'}">
                         <span class="status-icon">${hasRoonPairing ? '✓' : '⏳'}</span>
@@ -335,21 +437,113 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
+    // Enhanced service status determination
+    function getEnhancedServiceStatus(serviceName, isConfigured, serviceStats, serviceConfig = null) {
+        if (!isConfigured) {
+            // Not configured - RED
+            return {
+                cssClass: 'missing',
+                icon: '✗',
+                text: serviceName === 'discord' ? 'Required - Add Client ID' : 'Optional - Not configured',
+                help: getServiceHelp(serviceName)
+            };
+        }
+
+        // Configured - check connection status
+        if (!serviceStats) {
+            // No service stats available - YELLOW
+            return {
+                cssClass: 'configured-unknown',
+                icon: '?',
+                text: 'Configured - Connection status unknown',
+                help: null
+            };
+        }
+
+        switch (serviceStats.state) {
+            case 'connected':
+                // GREEN - configured and connected
+                return {
+                    cssClass: 'connected',
+                    icon: '✓',
+                    text: 'Configured and connected',
+                    help: null
+                };
+            case 'connecting':
+            case 'reconnecting':
+                // Check if credentials are valid format
+                const isValidFormat = validateCredentialFormat(serviceName, serviceConfig);
+
+                if (isValidFormat) {
+                    // BLUE - valid credentials attempting connection
+                    return {
+                        cssClass: 'connecting',
+                        icon: '⟳',
+                        text: 'Configured - Connecting...',
+                        help: null
+                    };
+                } else {
+                    // YELLOW - invalid credentials attempting connection
+                    return {
+                        cssClass: 'configured-disconnected',
+                        icon: '⚠',
+                        text: 'Configured but not connected',
+                        help: null
+                    };
+                }
+            case 'disconnected':
+            case 'error':
+            default:
+                // YELLOW - configured but not connected
+                return {
+                    cssClass: 'configured-disconnected',
+                    icon: '⚠',
+                    text: 'Configured but not connected',
+                    help: serviceStats.lastError ? `Error: ${serviceStats.lastError.message}` : null
+                };
+        }
+    }
+
+    function getServiceHelp(serviceName) {
+        switch (serviceName) {
+            case 'discord':
+                return 'Get your Client ID from <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a>';
+            case 'spotify':
+                return 'Add Client ID & Secret for enhanced track information';
+            case 'imgur':
+                return 'Add Client ID for album art sharing';
+            default:
+                return null;
+        }
+    }
+
     // Listen for configuration events from main process
-    ipcRenderer.on('config-loaded', (event, config) => {
+    ipcRenderer.on('config-loaded', async (event, config) => {
         console.log('Configuration loaded from main process');
-        displayConfigurationStatus(config);
+        await displayConfigurationStatus(config);
     });
 
-    ipcRenderer.on('config-saved', (event, config) => {
+    ipcRenderer.on('config-saved', async (event, config) => {
         console.log('Configuration saved in main process');
-        displayConfigurationStatus(config);
+        await displayConfigurationStatus(config);
     });
 
     ipcRenderer.on('config-error', (event, error) => {
         console.error('Configuration error from main process:', error);
         if (window.addLogEntry) {
             window.addLogEntry('Configuration error: ' + error, 'error');
+        }
+    });
+
+    // Listen for service status changes to update config page status
+    ipcRenderer.on('service-status-changed', async (event, data) => {
+        console.log('Service status changed, updating config status:', data);
+        // Reload current config and update status display
+        try {
+            const config = await ipcRenderer.invoke('config-get-all');
+            await displayConfigurationStatus(config);
+        } catch (error) {
+            console.error('Error updating config status after service change:', error);
         }
     });
 
