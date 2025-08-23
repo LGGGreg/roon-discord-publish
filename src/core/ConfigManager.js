@@ -98,13 +98,20 @@ class ConfigManager extends EventEmitter {
      */
     saveConfig(newConfig = null) {
         try {
+            const oldConfig = { ...this.config };
+
             if (newConfig) {
                 this.config = this.mergeWithDefaults(newConfig);
             }
-            
+
             const configJson = JSON.stringify(this.config, null, 4);
             fs.writeFileSync(this.configPath, configJson, 'utf8');
-            
+
+            // Emit config-changed events for any changes
+            if (newConfig) {
+                this.detectAndEmitChanges(oldConfig, this.config);
+            }
+
             this.emit('config-saved', this.config);
             console.log('Configuration saved successfully');
             return true;

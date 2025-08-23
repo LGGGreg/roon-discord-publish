@@ -126,21 +126,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function testConnection(service) {
+    async function testConnection(service) {
         if (window.addLogEntry) {
             window.addLogEntry(`Testing ${service} connection...`, 'info');
         }
-        
-        // TODO: Implement actual connection testing
-        setTimeout(() => {
+
+        try {
+            // Get current form values
+            const config = getCurrentConfig();
+
+            // Send test connection request to main process
+            const { ipcRenderer } = require('electron');
+            const result = await ipcRenderer.invoke('testServiceConnection', service.toLowerCase(), config);
+
+            if (result.success) {
+                if (window.addLogEntry) {
+                    window.addLogEntry(`${service} connection test successful`, 'success');
+                }
+
+                // Show success notification
+                if (window.showNotification) {
+                    window.showNotification(`${service} connection successful!`, 'success');
+                }
+            } else {
+                if (window.addLogEntry) {
+                    window.addLogEntry(`${service} connection test failed: ${result.error}`, 'error');
+                }
+
+                // Show error notification
+                if (window.showNotification) {
+                    window.showNotification(`${service} connection failed: ${result.error}`, 'error');
+                }
+            }
+        } catch (error) {
+            console.error(`Error testing ${service} connection:`, error);
             if (window.addLogEntry) {
-                window.addLogEntry(`${service} connection test completed`, 'success');
+                window.addLogEntry(`${service} connection test error: ${error.message}`, 'error');
             }
-            
+
+            // Show error notification
             if (window.showNotification) {
-                window.showNotification(`${service} connection test successful`, 'success');
+                window.showNotification(`${service} connection test error`, 'error');
             }
-        }, 2000);
+        }
     }
     
     // Event listeners

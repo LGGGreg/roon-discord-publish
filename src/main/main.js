@@ -398,10 +398,67 @@ function initializeServices() {
         }
     });
 
+    configManager.on('config-reloaded', (config) => {
+        logger.info('Config', 'Configuration reloaded from file watcher');
+        // Re-evaluate all service statuses after config reload
+        if (mainWindow) {
+            if (discordService) {
+                const statusData = getServiceStatusForUI(discordService, 'discord');
+                logger.info('Config', 'Updating Discord status after reload:', statusData);
+                mainWindow.webContents.send('service-status-changed', statusData);
+            }
+            if (spotifyService) {
+                const statusData = getServiceStatusForUI(spotifyService, 'spotify');
+                logger.info('Config', 'Updating Spotify status after reload:', statusData);
+                mainWindow.webContents.send('service-status-changed', statusData);
+            }
+            if (imgurService) {
+                const statusData = getServiceStatusForUI(imgurService, 'imgur');
+                logger.info('Config', 'Updating Imgur status after reload:', statusData);
+                mainWindow.webContents.send('service-status-changed', statusData);
+            }
+        }
+    });
+
     configManager.on('config-error', (error) => {
         logger.error('Config', 'Configuration error', error.message);
         if (mainWindow) {
             mainWindow.webContents.send('config-error', error.message);
+        }
+    });
+
+    // Listen for individual config field changes
+    configManager.on('config-changed', (path, newValue) => {
+        logger.info('Config', `Configuration changed: ${path} = ${newValue}`);
+
+        // Update service status when credentials change
+        if (path.startsWith('discord.') && discordService) {
+            const statusData = getServiceStatusForUI(discordService, 'discord');
+            logger.info('Config', 'Updating Discord status after config change:', statusData);
+            if (mainWindow) {
+                mainWindow.webContents.send('service-status-changed', statusData);
+            }
+        }
+
+        if (path.startsWith('spotify.') && spotifyService) {
+            const statusData = getServiceStatusForUI(spotifyService, 'spotify');
+            logger.info('Config', 'Updating Spotify status after config change:', statusData);
+            if (mainWindow) {
+                mainWindow.webContents.send('service-status-changed', statusData);
+            }
+        }
+
+        if (path.startsWith('imgur.') && imgurService) {
+            const statusData = getServiceStatusForUI(imgurService, 'imgur');
+            logger.info('Config', 'Updating Imgur status after config change:', statusData);
+            if (mainWindow) {
+                mainWindow.webContents.send('service-status-changed', statusData);
+            }
+        }
+
+        // Forward config change to renderer
+        if (mainWindow) {
+            mainWindow.webContents.send('config-changed', path, newValue);
         }
     });
 
@@ -1229,6 +1286,73 @@ ipcMain.handle('service-get-all-status', () => {
     }
 
     return status;
+});
+
+// Test service connection with provided credentials
+ipcMain.handle('testServiceConnection', async (event, serviceName, config) => {
+    logger.info('System', `Testing ${serviceName} connection with provided credentials`);
+
+    try {
+        let service;
+        let credentials;
+
+        switch (serviceName) {
+            case 'discord':
+                service = discordService;
+                credentials = { clientId: config.discord?.clientId };
+                break;
+            case 'spotify':
+                service = spotifyService;
+                credentials = {
+                    client: config.spotify?.client,
+                    secret: config.spotify?.secret
+                };
+                break;
+            case 'imgur':
+                service = imgurService;
+                credentials = { clientId: config.imgur?.clientId };
+                break;
+            default:
+                return { success: false, error: `Unknown service: ${serviceName}` };
+        }
+
+        if (!service) {
+            return { success: false, error: `${serviceName} service not initialized` };
+        }
+
+        // Check if credentials are provided
+        if (!credentials || Object.values(credentials).every(val => !val)) {
+            return { success: false, error: `Missing credentials for ${serviceName}` };
+        }
+
+        // Temporarily update service credentials and test connection
+        const originalConfig = configManager.getAll();
+
+        // Update config with test credentials
+        configManager.set(`${serviceName}`, credentials, false); // Don't save to file
+
+        // Trigger service to use new credentials
+        service.emit('config-changed', `${serviceName}.clientId`, credentials.clientId || credentials.client);
+
+        // Wait a moment for the service to process the change
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Attempt connection
+        const result = await service.reconnect(true);
+
+        // Restore original config
+        configManager.config = originalConfig;
+
+        if (result) {
+            return { success: true, message: `${serviceName} connection successful` };
+        } else {
+            return { success: false, error: `${serviceName} connection failed` };
+        }
+
+    } catch (error) {
+        logger.error('System', `Error testing ${serviceName} connection:`, error);
+        return { success: false, error: error.message };
+    }
 });
 
 // Status Monitor IPC handlers
