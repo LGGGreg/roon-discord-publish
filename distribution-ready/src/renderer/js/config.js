@@ -424,6 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const spotifyStatus = getEnhancedServiceStatus('spotify', config.spotify?.client && config.spotify?.secret, serviceStatus.spotify, config.spotify);
         const imgurStatus = getEnhancedServiceStatus('imgur', config.imgur?.clientId, serviceStatus.imgur, config.imgur);
         const hasRoonPairing = config.roonstate?.paired_core_id;
+        const roonStatus = getRoonServiceStatus(hasRoonPairing, serviceStatus.roon);
 
         statusDiv.innerHTML = `
             <div class="status-summary">
@@ -444,9 +445,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span>Imgur: ${imgurStatus.text}</span>
                         ${imgurStatus.help ? `<div class="status-help">${imgurStatus.help}</div>` : ''}
                     </div>
-                    <div class="status-item ${hasRoonPairing ? 'configured' : 'pending'}">
-                        <span class="status-icon">${hasRoonPairing ? '✓' : '⏳'}</span>
-                        <span>Roon: ${hasRoonPairing ? 'Paired' : 'Pairing Required'}</span>
+                    <div class="status-item ${roonStatus.cssClass}">
+                        <span class="status-icon">${roonStatus.icon}</span>
+                        <span>Roon: ${roonStatus.text}</span>
+                        ${roonStatus.help ? `<div class="status-help">${roonStatus.help}</div>` : ''}
                     </div>
                 </div>
             </div>
@@ -530,6 +532,77 @@ document.addEventListener('DOMContentLoaded', () => {
                 return 'Add Client ID for album art sharing';
             default:
                 return null;
+        }
+    }
+
+    // Special status determination for Roon service
+    function getRoonServiceStatus(hasRoonPairing, serviceStats) {
+        // Roon doesn't require configuration like other services - it uses discovery
+        // So we focus on pairing status and connection state
+
+        if (!serviceStats) {
+            // No service stats available
+            if (hasRoonPairing) {
+                return {
+                    cssClass: 'configured-unknown',
+                    icon: '?',
+                    text: 'Paired - Connection status unknown',
+                    help: null
+                };
+            } else {
+                return {
+                    cssClass: 'pending',
+                    icon: '⏳',
+                    text: 'Pairing Required',
+                    help: 'Start Roon and approve this extension in Settings > Extensions'
+                };
+            }
+        }
+
+        switch (serviceStats.state) {
+            case 'connected':
+                // GREEN - connected and ready
+                return {
+                    cssClass: 'connected',
+                    icon: '✓',
+                    text: 'Connected and ready',
+                    help: null
+                };
+            case 'connecting':
+                // BLUE - attempting connection
+                return {
+                    cssClass: 'connecting',
+                    icon: '⟳',
+                    text: hasRoonPairing ? 'Connecting to paired core...' : 'Searching for Roon Core...',
+                    help: null
+                };
+            case 'reconnecting':
+                // BLUE - reconnecting
+                return {
+                    cssClass: 'connecting',
+                    icon: '⟳',
+                    text: 'Reconnecting...',
+                    help: null
+                };
+            case 'disconnected':
+            case 'error':
+            default:
+                // Check if we have pairing but no connection
+                if (hasRoonPairing) {
+                    return {
+                        cssClass: 'configured-disconnected',
+                        icon: '⚠',
+                        text: 'Paired but not connected',
+                        help: 'Make sure Roon is running and this extension is enabled'
+                    };
+                } else {
+                    return {
+                        cssClass: 'pending',
+                        icon: '⏳',
+                        text: 'Pairing Required',
+                        help: 'Start Roon and approve this extension in Settings > Extensions'
+                    };
+                }
         }
     }
 

@@ -198,9 +198,9 @@ class ConnectionManager extends EventEmitter {
                 this.connect(),
                 timeoutPromise
             ]);
-            
+
             this.clearConnectionTimeout();
-            
+
             if (success) {
                 this.setState(ConnectionState.CONNECTED, 'Connection established');
                 return true;

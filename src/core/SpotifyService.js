@@ -47,35 +47,54 @@ class SpotifyService extends ConnectionManager {
                 console.log('Spotify already connected and token valid, skipping reconnection');
                 return true;
             }
-            
+
+            console.log('Spotify: Starting connection process...');
+
             // Get configuration
             const clientId = this.configManager.get('spotify.client');
             const clientSecret = this.configManager.get('spotify.secret');
-            
+
             if (!this.canConnect()) {
                 throw new Error('Spotify client ID and secret are required');
             }
-            
+
             // Create Spotify API instance
             this.spotifyApi = new SpotifyWebApi({
                 clientId: clientId,
                 clientSecret: clientSecret
             });
-            
+
             // Get access token using client credentials flow
+            console.log('Spotify: About to refresh token...');
             await this.refreshToken();
-            
+            console.log('Spotify: Token obtained successfully');
+
             // Test the connection
+            console.log('Spotify: About to test connection...');
             await this.testConnection();
-            
+            console.log('Spotify: Connection test passed');
+
             this.setState('connected', 'Connected to Spotify API');
-            console.log('Spotify: Connected successfully');
-            
+            console.log('Spotify: Connected successfully - returning true');
+
             return true;
-            
+
         } catch (error) {
             console.error('Spotify connection error:', error);
-            this.setState('disconnected', 'Connection failed', error.message);
+
+            // Provide more specific error messages
+            let errorMessage = 'Connection failed';
+            if (error.statusCode === 400) {
+                errorMessage = 'Invalid client credentials';
+            } else if (error.statusCode === 401) {
+                errorMessage = 'Unauthorized - check credentials';
+            } else if (error.statusCode === 403) {
+                errorMessage = 'Forbidden - check app permissions';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            this.setState('disconnected', errorMessage);
             throw error;
         }
     }
@@ -104,16 +123,16 @@ class SpotifyService extends ConnectionManager {
         if (!this.spotifyApi) {
             throw new Error('Spotify API not initialized');
         }
-        
+
         try {
             console.log('Spotify: Refreshing access token...');
             const data = await this.spotifyApi.clientCredentialsGrant();
-            
+
             this.tokenExpiration = Date.now() + (data.body['expires_in'] * 1000);
             this.spotifyApi.setAccessToken(data.body['access_token']);
-            
+
             console.log('Spotify: Access token refreshed, expires in', data.body['expires_in'], 'seconds');
-            
+
         } catch (error) {
             console.error('Spotify token refresh error:', error);
             throw error;
@@ -127,16 +146,22 @@ class SpotifyService extends ConnectionManager {
         if (!this.spotifyApi) {
             throw new Error('Spotify API not initialized');
         }
-        
+
         try {
+            console.log('Spotify: Testing connection with search...');
             // Simple search to test the connection
-            await this.spotifyApi.searchTracks('test', { limit: 1 });
+            const result = await this.spotifyApi.searchTracks('test', { limit: 1 });
+            console.log('Spotify: Search test successful, found', result.body.tracks.total, 'tracks');
             return true;
         } catch (error) {
+            console.log('Spotify: Search test failed:', error.message, 'Status:', error.statusCode);
             if (error.statusCode === 401) {
+                console.log('Spotify: Token expired, trying to refresh...');
                 // Token expired, try to refresh
                 await this.refreshToken();
-                await this.spotifyApi.searchTracks('test', { limit: 1 });
+                console.log('Spotify: Token refreshed, retrying search...');
+                const result = await this.spotifyApi.searchTracks('test', { limit: 1 });
+                console.log('Spotify: Retry search successful, found', result.body.tracks.total, 'tracks');
                 return true;
             }
             throw error;
