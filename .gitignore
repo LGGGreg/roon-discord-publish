@@ -69,3 +69,5 @@ coverage/
 *.AppImage
 *.deb
 *.rpm
+
+roon-discord-config.json

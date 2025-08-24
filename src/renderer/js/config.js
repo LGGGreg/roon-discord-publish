@@ -1,9 +1,10 @@
 // Configuration management functionality
 // This file will handle loading, saving, and validating configuration
 
-const { ipcRenderer } = require('electron');
-
 document.addEventListener('DOMContentLoaded', () => {
+    // Get ipcRenderer (avoiding global scope conflict)
+    const { ipcRenderer } = require('electron');
+
     const configForm = {
         discordClientId: document.getElementById('discord-client-id'),
         spotifyClientId: document.getElementById('spotify-client-id'),
@@ -156,15 +157,34 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('test-spotify')?.addEventListener('click', () => testConnection('Spotify'));
     document.getElementById('test-imgur')?.addEventListener('click', () => testConnection('Imgur'));
     
-    document.getElementById('export-config')?.addEventListener('click', async () => {
-        await exportConfiguration();
-    });
+    const exportBtn = document.getElementById('export-config');
+    const importBtn = document.getElementById('import-config');
 
-    document.getElementById('import-config')?.addEventListener('click', async () => {
-        await importConfiguration();
-    });
+    console.log('Export button found:', !!exportBtn);
+    console.log('Import button found:', !!importBtn);
+
+    if (exportBtn) {
+        exportBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            console.log('Export button clicked');
+            await exportConfiguration();
+        });
+    } else {
+        console.error('Export button not found!');
+    }
+
+    if (importBtn) {
+        importBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            console.log('Import button clicked');
+            await importConfiguration();
+        });
+    } else {
+        console.error('Import button not found!');
+    }
     
     async function exportConfiguration() {
+        console.log('exportConfiguration() called');
         try {
             const result = await ipcRenderer.invoke('show-save-dialog', {
                 title: 'Export Configuration',
@@ -201,6 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function importConfiguration() {
+        console.log('importConfiguration() called');
         try {
             const result = await ipcRenderer.invoke('show-open-dialog', {
                 title: 'Import Configuration'
