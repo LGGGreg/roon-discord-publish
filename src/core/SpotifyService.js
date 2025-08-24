@@ -44,7 +44,7 @@ class SpotifyService extends ConnectionManager {
         try {
             // Don't reconnect if already connected and working
             if (this.isConnected() && this.spotifyApi && this.tokenExpiration > Date.now()) {
-                console.log('Spotify already connected and token valid, skipping reconnection');
+                console.log('Spotify: Already connected and token valid, skipping reconnection');
                 return true;
             }
 
@@ -55,8 +55,11 @@ class SpotifyService extends ConnectionManager {
             const clientSecret = this.configManager.get('spotify.secret');
 
             if (!this.canConnect()) {
+                console.log('Spotify: Cannot connect - missing credentials');
                 throw new Error('Spotify client ID and secret are required');
             }
+
+            console.log('Spotify: Credentials found, creating API instance...');
 
             // Create Spotify API instance
             this.spotifyApi = new SpotifyWebApi({
@@ -126,15 +129,20 @@ class SpotifyService extends ConnectionManager {
 
         try {
             console.log('Spotify: Refreshing access token...');
+            const startTime = Date.now();
             const data = await this.spotifyApi.clientCredentialsGrant();
+            const duration = Date.now() - startTime;
 
             this.tokenExpiration = Date.now() + (data.body['expires_in'] * 1000);
             this.spotifyApi.setAccessToken(data.body['access_token']);
 
-            console.log('Spotify: Access token refreshed, expires in', data.body['expires_in'], 'seconds');
+            console.log(`Spotify: Access token refreshed in ${duration}ms, expires in ${data.body['expires_in']} seconds`);
 
         } catch (error) {
-            console.error('Spotify token refresh error:', error);
+            console.error('Spotify token refresh error:', error.message);
+            if (error.statusCode) {
+                console.error(`Spotify: HTTP ${error.statusCode} - ${error.message}`);
+            }
             throw error;
         }
     }

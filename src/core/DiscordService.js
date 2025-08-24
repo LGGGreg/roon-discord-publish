@@ -177,6 +177,13 @@ class DiscordService extends ConnectionManager {
             await this.rpc.setActivity(activity);
             this.lastSentStatus = now;
             this.emit('activity-set', activity);
+
+            // Update status details to show current activity
+            const activityDetails = activity.details && activity.state ?
+                `Playing: ${activity.details} - ${activity.state}` :
+                'Playing music';
+            this.setState(ConnectionManager.ConnectionState.CONNECTED, activityDetails);
+
             return true;
         } catch (error) {
             console.error('Error setting Discord activity:', error);

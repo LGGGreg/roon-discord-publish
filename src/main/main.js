@@ -540,6 +540,15 @@ function initializeServices() {
 
     roonService.on('zones-updated', (zones) => {
         logger.info('Roon', `Zones updated: ${zones.length} zones available`);
+
+        // Check if all zones are paused/stopped and clear Discord status if so
+        if (discordService && discordService.isConnected() && roonService.areAllZonesPaused()) {
+            logger.info('Discord', 'All zones are paused on zones update, clearing Discord status');
+            discordService.clearActivity().catch(error => {
+                logger.error('Discord', 'Failed to clear Discord status on zones update:', error);
+            });
+        }
+
         if (mainWindow) {
             mainWindow.webContents.send('roon-zones-updated', zones);
         }
@@ -579,7 +588,18 @@ function initializeServices() {
 
         // Update Discord activity if Discord is connected
         if (discordService && discordService.isConnected() && trackInfo) {
-            updateDiscordActivityWithEnhancements(trackInfo);
+            // Only update Discord if track is actually playing
+            if (trackInfo.state === 'playing') {
+                updateDiscordActivityWithEnhancements(trackInfo);
+            } else if (trackInfo.state === 'paused' || trackInfo.state === 'stopped') {
+                // Check if all zones are paused/stopped and clear Discord if so
+                if (roonService.areAllZonesPaused()) {
+                    logger.info('Discord', 'Track paused and all zones paused, clearing Discord status');
+                    discordService.clearActivity().catch(error => {
+                        logger.error('Discord', 'Failed to clear Discord status:', error);
+                    });
+                }
+            }
         }
     });
 
@@ -597,6 +617,70 @@ function initializeServices() {
                 albumArt: trackInfo.albumArt || null
             };
             mainWindow.webContents.send('roon-track-position-changed', trackInfoWithArt);
+        }
+    });
+
+    // Listen for zone state changes to clear Discord status when all zones are paused
+    roonService.on('zone-state-changed', (stateChangeInfo) => {
+        const { zone, previousState, newState } = stateChangeInfo;
+
+        logger.info('Roon', `Zone state changed: ${zone.display_name}`, {
+            previousState,
+            newState,
+            zoneName: zone.display_name
+        });
+
+        // Handle Discord status based on zone state changes from ANY zone
+        if (discordService && discordService.isConnected()) {
+            if (newState === 'playing' && zone.now_playing) {
+                // ANY zone started playing - set Discord status AND update frontend
+                logger.info('Discord', `Zone ${zone.display_name} started playing, updating Discord status and frontend`);
+                const trackInfo = {
+                    title: zone.now_playing.three_line?.line1 || zone.now_playing.two_line?.line1 || 'Unknown',
+                    artist: zone.now_playing.three_line?.line2 || zone.now_playing.two_line?.line2 || 'Unknown',
+                    album: zone.now_playing.three_line?.line3 || 'Unknown',
+                    zoneName: zone.display_name,
+                    state: zone.state,
+                    length: zone.now_playing.length,
+                    seek_position: zone.now_playing.seek_position,
+                    image_key: zone.now_playing.image_key
+                };
+
+                // Update Discord
+                updateDiscordActivityWithEnhancements(trackInfo);
+
+                // Update frontend display
+                if (mainWindow) {
+                    getAlbumArtForTrack(trackInfo).then(albumArtUrl => {
+                        const trackInfoWithArt = {
+                            ...trackInfo,
+                            albumArt: albumArtUrl
+                        };
+                        mainWindow.webContents.send('roon-track-changed', trackInfoWithArt);
+                    }).catch(error => {
+                        console.error('Error getting album art for zone state change:', error);
+                        mainWindow.webContents.send('roon-track-changed', trackInfo);
+                    });
+                }
+            } else if ((newState === 'paused' || newState === 'stopped') && roonService.areAllZonesPaused()) {
+                // ALL zones paused/stopped - clear Discord status AND frontend display
+                logger.info('Discord', 'All zones paused/stopped, clearing Discord status and frontend display');
+                discordService.clearActivity().then(() => {
+                    logger.info('Discord', 'Discord status cleared due to all zones paused');
+                }).catch(error => {
+                    logger.error('Discord', 'Failed to clear Discord status:', error);
+                });
+
+                // Clear frontend display
+                if (mainWindow) {
+                    mainWindow.webContents.send('roon-track-cleared');
+                }
+            }
+        }
+
+        // Send zone state change to frontend
+        if (mainWindow) {
+            mainWindow.webContents.send('roon-zone-state-changed', stateChangeInfo);
         }
     });
 

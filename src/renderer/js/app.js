@@ -122,6 +122,28 @@ function updateCurrentTrack(trackInfo) {
     }
 }
 
+function clearCurrentTrack() {
+    // Clear the current track display by calling updateCurrentTrack with empty data
+    updateCurrentTrack({
+        title: '',
+        artist: '',
+        album: '',
+        zoneName: '',
+        albumArt: null,
+        duration: 0,
+        progress: 0
+    });
+
+    // Also clear the app state
+    AppState.currentTrack = {
+        title: '',
+        artist: '',
+        album: '',
+        duration: 0,
+        progress: 0
+    };
+}
+
 function formatTime(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -424,6 +446,13 @@ ipcRenderer.on('roon-track-changed', (event, trackInfo) => {
         // Null or invalid trackInfo - ignore to prevent flickering
         console.log('Ignoring invalid track info to prevent flickering:', trackInfo);
     }
+});
+
+// Listen for track cleared event (when all zones are paused)
+ipcRenderer.on('roon-track-cleared', (event) => {
+    console.log('All zones paused, clearing track display');
+    clearCurrentTrack();
+    addLogEntry('All zones paused - no music playing', 'info');
 });
 
 // Listen for track position changes (seek updates)

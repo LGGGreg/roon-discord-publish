@@ -251,12 +251,14 @@ class RoonService extends ConnectionManager {
             // Use the exact same pattern as the working console app
             this.transport.subscribe_zones(async (cmd, data) => {
                 try {
-                    console.log('Zones subscription command:', cmd);
+                    console.log('🎵 Zones subscription command:', cmd, data ? Object.keys(data) : 'no data');
 
                     if (cmd === 'Subscribed' || cmd === 'Changed') {
                         if (data && data.zones) {
+                            console.log('🎵 Handling zones update with', data.zones.length, 'zones');
                             this.handleZonesUpdate(data);
                         } else if (cmd === 'Changed' && data) {
+                            console.log('🎵 Handling zone changes without zones array');
                             // Handle zone changes that don't have zones array
                             this.handleZoneChanges(data);
                         }
@@ -278,10 +280,51 @@ class RoonService extends ConnectionManager {
     handleZonesUpdate(data) {
         if (!data || !data.zones) return;
 
+        // Store previous zones for state change detection
+        const previousZones = new Map(this.zones);
+
         // Update zones map
         this.zones.clear();
         data.zones.forEach(zone => {
             this.zones.set(zone.zone_id, zone);
+        });
+
+        // Check for zone state changes in ALL zones (unless configured for specific zone)
+        const configuredZoneId = this.configManager.get('zone_id');
+
+        data.zones.forEach(zone => {
+            const previousZone = previousZones.get(zone.zone_id);
+
+            // Check if we should monitor this zone
+            const shouldMonitorZone = !configuredZoneId || zone.zone_id === configuredZoneId;
+
+            if (shouldMonitorZone && previousZone && previousZone.state !== zone.state) {
+                console.log(`Zone ${zone.display_name} state changed: ${previousZone.state} -> ${zone.state}`);
+                this.emit('zone-state-changed', {
+                    zone: zone,
+                    previousState: previousZone.state,
+                    newState: zone.state
+                });
+            }
+
+            // Update current zone if this is our current zone
+            if (this.currentZone && zone.zone_id === this.currentZone.zone_id) {
+                this.currentZone = zone;
+
+                // Emit track-changed if zone is playing
+                if (zone.now_playing && zone.state === 'playing') {
+                    const trackInfo = this.extractTrackInfo(zone);
+                    if (trackInfo) {
+                        this.currentTrack = trackInfo;
+                        this.emit('track-changed', trackInfo);
+                        console.log(`Track changed from zones update: ${trackInfo.title} - ${trackInfo.artist}`);
+                    }
+                } else if (zone.state === 'paused' || zone.state === 'stopped') {
+                    // Clear current track when paused/stopped
+                    this.currentTrack = null;
+                    console.log(`Zone ${zone.display_name} ${zone.state}, clearing current track`);
+                }
+            }
         });
 
         // Find current zone or select default
@@ -298,21 +341,40 @@ class RoonService extends ConnectionManager {
 
         // Handle zones_changed array
         if (data.zones_changed && Array.isArray(data.zones_changed)) {
+            const configuredZoneId = this.configManager.get('zone_id');
+
             data.zones_changed.forEach(zone => {
+                const previousZone = this.zones.get(zone.zone_id);
                 this.zones.set(zone.zone_id, zone);
+
+                // Check if we should monitor this zone for state changes
+                const shouldMonitorZone = !configuredZoneId || zone.zone_id === configuredZoneId;
+
+                if (shouldMonitorZone && previousZone && previousZone.state !== zone.state) {
+                    console.log(`Zone ${zone.display_name} state changed: ${previousZone.state} -> ${zone.state}`);
+                    this.emit('zone-state-changed', {
+                        zone: zone,
+                        previousState: previousZone.state,
+                        newState: zone.state
+                    });
+                }
 
                 // If this is our current zone or we don't have one, update it
                 if (!this.currentZone || zone.zone_id === this.currentZone.zone_id) {
                     this.currentZone = zone;
 
                     // Check if zone has now_playing information and emit track change
-                    if (zone.now_playing) {
+                    if (zone.now_playing && zone.state === 'playing') {
                         const trackInfo = this.extractTrackInfo(zone);
                         if (trackInfo) {
                             this.currentTrack = trackInfo;
                             this.emit('track-changed', trackInfo);
                             console.log(`Track changed from zone update: ${trackInfo.title} - ${trackInfo.artist}`);
                         }
+                    } else if (zone.state === 'paused' || zone.state === 'stopped') {
+                        // Clear current track when paused/stopped
+                        this.currentTrack = null;
+                        console.log(`Zone ${zone.display_name} ${zone.state}, clearing current track`);
                     }
                 }
             });
@@ -374,14 +436,18 @@ class RoonService extends ConnectionManager {
             this.updateQueueSubscription();
             this.emit('zone-selected', this.currentZone);
 
-            // Check if zone has now_playing information and emit track change
-            if (this.currentZone.now_playing) {
+            // Check if zone has now_playing information and is playing
+            if (this.currentZone.now_playing && this.currentZone.state === 'playing') {
                 const trackInfo = this.extractTrackInfo(this.currentZone);
                 if (trackInfo) {
                     this.currentTrack = trackInfo;
                     this.emit('track-changed', trackInfo);
                     console.log(`Now playing from zone: ${trackInfo.title} - ${trackInfo.artist}`);
                 }
+            } else if (this.currentZone.state === 'paused' || this.currentZone.state === 'stopped') {
+                // Clear current track when paused/stopped
+                this.currentTrack = null;
+                console.log(`Zone ${this.currentZone.display_name} ${this.currentZone.state}, clearing current track`);
             }
         }
     }
@@ -405,9 +471,14 @@ class RoonService extends ConnectionManager {
             if (change.operation === 'add' || change.operation === 'change') {
                 change.items?.forEach(item => {
                     if (item.zone_id === this.currentZone?.zone_id) {
-                        this.currentTrack = item;
-                        this.emit('track-changed', item);
-                        console.log(`Now playing: ${item.three_line?.line1 || 'Unknown'} - ${item.three_line?.line2 || 'Unknown'}`);
+                        // Only emit track-changed if the zone is actually playing
+                        if (this.currentZone.state === 'playing') {
+                            this.currentTrack = item;
+                            this.emit('track-changed', item);
+                            console.log(`Now playing: ${item.three_line?.line1 || 'Unknown'} - ${item.three_line?.line2 || 'Unknown'}`);
+                        } else {
+                            console.log(`Queue updated but zone ${this.currentZone.display_name} is ${this.currentZone.state}, not emitting track-changed`);
+                        }
                     }
                 });
             }
@@ -462,6 +533,21 @@ class RoonService extends ConnectionManager {
             state: zone.state,
             is_current: zone.zone_id === this.currentZone?.zone_id
         }));
+    }
+
+    /**
+     * Check if all zones are paused or stopped
+     * @returns {boolean} True if all zones are paused/stopped/loading
+     */
+    areAllZonesPaused() {
+        if (this.zones.size === 0) return true;
+
+        return Array.from(this.zones.values()).every(zone =>
+            zone.state === 'paused' ||
+            zone.state === 'stopped' ||
+            zone.state === 'loading' ||
+            !zone.state
+        );
     }
     
     /**
