@@ -181,6 +181,13 @@ class RoonService extends ConnectionManager {
                         // Verify it was saved
                         const savedState = this.configManager.get('roonstate');
                         console.log('Verified saved state:', JSON.stringify(savedState, null, 2));
+
+                        // Emit event for UI notification
+                        this.emit('tokens-saved', {
+                            service: 'roon',
+                            message: 'Roon authorization tokens saved automatically',
+                            details: 'You will not need to re-authorize when restarting the app'
+                        });
                     } else {
                         console.warn('Roon state is empty or undefined, not saving');
                     }

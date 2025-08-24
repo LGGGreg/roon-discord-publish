@@ -528,6 +528,16 @@ function initializeServices() {
         }
     });
 
+    roonService.on('tokens-saved', (tokenInfo) => {
+        logger.info('Roon', 'Authorization tokens saved automatically', {
+            service: tokenInfo.service,
+            message: tokenInfo.message
+        });
+        if (mainWindow) {
+            mainWindow.webContents.send('roon-tokens-saved', tokenInfo);
+        }
+    });
+
     roonService.on('zones-updated', (zones) => {
         logger.info('Roon', `Zones updated: ${zones.length} zones available`);
         if (mainWindow) {
@@ -1384,13 +1394,24 @@ function validateServiceCredentials(serviceName, credentials) {
 
         case 'imgur':
             const imgurClientId = credentials.clientId;
+            const imgurClientSecret = credentials.clientSecret;
+
             if (!imgurClientId || imgurClientId.trim() === '') {
                 return { valid: false, error: 'Imgur Client ID is required' };
             }
+
             // Basic Imgur Client ID validation (should be alphanumeric, typically 15 chars)
             if (!/^[a-zA-Z0-9]{10,20}$/.test(imgurClientId.trim())) {
                 return { valid: false, error: 'Imgur Client ID should be 10-20 alphanumeric characters' };
             }
+
+            // If Client Secret is provided, validate it (should be 40 character hex string)
+            if (imgurClientSecret && imgurClientSecret.trim() !== '') {
+                if (!/^[a-f0-9]{40}$/i.test(imgurClientSecret.trim())) {
+                    return { valid: false, error: 'Imgur Client Secret should be 40 hexadecimal characters' };
+                }
+            }
+
             return { valid: true };
 
         default:

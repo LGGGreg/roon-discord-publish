@@ -225,8 +225,10 @@ class ConfigManager extends EventEmitter {
         }
         
         // Check Imgur settings if provided
-        if (this.get('imgur.clientId') && !this.get('imgur.clientSecret')) {
-            errors.push('Imgur Client Secret is required when Client ID is provided');
+        // Note: Client Secret is optional for anonymous uploads
+        const imgurClientId = this.get('imgur.clientId');
+        if (imgurClientId && imgurClientId.trim() === '') {
+            errors.push('Imgur Client ID cannot be empty if provided');
         }
         
         return {

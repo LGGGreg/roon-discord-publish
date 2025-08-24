@@ -51,6 +51,16 @@ class ImgurService extends ConnectionManager {
     }
 
     /**
+     * Check if authenticated mode is available (has both Client ID and Secret)
+     * @returns {boolean} Has both credentials for authenticated uploads
+     */
+    hasAuthenticatedCredentials() {
+        const clientId = this.configManager.get('imgur.clientId');
+        const clientSecret = this.configManager.get('imgur.clientSecret');
+        return !!(clientId && clientId.trim() && clientSecret && clientSecret.trim());
+    }
+
+    /**
      * Connect to Imgur API
      */
     async connect() {

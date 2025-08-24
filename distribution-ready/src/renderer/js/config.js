@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
         spotifyClientId: document.getElementById('spotify-client-id'),
         spotifyClientSecret: document.getElementById('spotify-client-secret'),
         imgurClientId: document.getElementById('imgur-client-id'),
+        imgurClientSecret: document.getElementById('imgur-client-secret'),
         roonCoreIp: document.getElementById('roon-core-ip'),
         roonZoneId: document.getElementById('roon-zone-id'),
         roonUseDiscovery: document.getElementById('roon-use-discovery'),
@@ -29,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (config.spotify?.client) configForm.spotifyClientId.value = config.spotify.client;
             if (config.spotify?.secret) configForm.spotifyClientSecret.value = config.spotify.secret;
             if (config.imgur?.clientId) configForm.imgurClientId.value = config.imgur.clientId;
+            if (config.imgur?.clientSecret) configForm.imgurClientSecret.value = config.imgur.clientSecret;
             if (config.core_ip) configForm.roonCoreIp.value = config.core_ip;
             if (config.zone_id) configForm.roonZoneId.value = config.zone_id;
 
@@ -62,7 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     secret: configForm.spotifyClientSecret.value.trim()
                 },
                 imgur: {
-                    clientId: configForm.imgurClientId.value.trim()
+                    clientId: configForm.imgurClientId.value.trim(),
+                    clientSecret: configForm.imgurClientSecret.value.trim()
                 },
                 core_ip: configForm.roonCoreIp.value.trim(),
                 zone_id: configForm.roonZoneId.value.trim(),
@@ -149,11 +152,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             case 'imgur':
                 const imgurClientId = serviceConfig?.clientId;
+                const imgurClientSecret = serviceConfig?.clientSecret;
+
                 if (!imgurClientId || imgurClientId.trim() === '') {
                     return false;
                 }
+
                 // Imgur Client ID should be 10-20 alphanumeric characters
-                return /^[a-zA-Z0-9]{10,20}$/.test(imgurClientId.trim());
+                const clientIdValid = /^[a-zA-Z0-9]{10,20}$/.test(imgurClientId.trim());
+
+                // If Client Secret is provided, validate it (should be 40 character hex string)
+                if (imgurClientSecret && imgurClientSecret.trim() !== '') {
+                    const clientSecretValid = /^[a-f0-9]{40}$/i.test(imgurClientSecret.trim());
+                    return clientIdValid && clientSecretValid;
+                }
+
+                // Client Secret is optional, only validate Client ID
+                return clientIdValid;
 
             default:
                 return false;
@@ -171,7 +186,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 secret: configForm.spotifyClientSecret?.value?.trim() || ''
             },
             imgur: {
-                clientId: configForm.imgurClientId?.value?.trim() || ''
+                clientId: configForm.imgurClientId?.value?.trim() || '',
+                clientSecret: configForm.imgurClientSecret?.value?.trim() || ''
             },
             core_ip: configForm.roonCoreIp?.value?.trim() || '',
             zone_id: configForm.roonZoneId?.value?.trim() || '',

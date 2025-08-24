@@ -386,6 +386,12 @@ ipcRenderer.on('roon-core-paired', (event, core) => {
     addLogEntry(`Roon connected to core: ${core.display_name}`, 'success');
 });
 
+ipcRenderer.on('roon-tokens-saved', (event, tokenInfo) => {
+    console.log('Roon tokens saved automatically:', tokenInfo);
+    addLogEntry(tokenInfo.message, 'success');
+    showNotification(`✅ ${tokenInfo.message}`, 'success');
+});
+
 ipcRenderer.on('roon-zones-updated', (event, zones) => {
     console.log('Roon zones updated:', zones);
     addLogEntry(`Roon zones updated: ${zones.length} zones available`, 'info');

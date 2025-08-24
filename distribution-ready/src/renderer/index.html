@@ -186,10 +186,16 @@
                         <div class="form-group">
                             <label for="imgur-client-id">Client ID</label>
                             <input type="text" id="imgur-client-id" placeholder="Enter Imgur Client ID">
+                        </div>
+                        <div class="form-group">
+                            <label for="imgur-client-secret">Client Secret (Optional)</label>
+                            <input type="password" id="imgur-client-secret" placeholder="Enter Imgur Client Secret for authenticated uploads">
                             <button class="btn btn-small test-btn" id="test-imgur">Save and Test Connection</button>
                         </div>
                         <p class="help-text">
-                            Get your Imgur Client ID from 
+                            <strong>Anonymous uploads:</strong> Only Client ID required (lower rate limits)<br>
+                            <strong>Authenticated uploads:</strong> Both Client ID and Secret required (higher rate limits)<br>
+                            Get your credentials from
                             <a href="#" onclick="require('electron').shell.openExternal('https://api.imgur.com/oauth2/addclient')">Imgur API Registration</a>
                         </p>
                     </div>

@@ -51,6 +51,16 @@ class ImgurService extends ConnectionManager {
     }
 
     /**
+     * Check if authenticated mode is available (has both Client ID and Secret)
+     * @returns {boolean} Has both credentials for authenticated uploads
+     */
+    hasAuthenticatedCredentials() {
+        const clientId = this.configManager.get('imgur.clientId');
+        const clientSecret = this.configManager.get('imgur.clientSecret');
+        return !!(clientId && clientId.trim() && clientSecret && clientSecret.trim());
+    }
+
+    /**
      * Connect to Imgur API
      */
     async connect() {
@@ -60,24 +70,40 @@ class ImgurService extends ConnectionManager {
                 console.log('Imgur already connected, skipping reconnection');
                 return true;
             }
-            
+
             // Get configuration
             const clientId = this.configManager.get('imgur.clientId');
-            
+            const clientSecret = this.configManager.get('imgur.clientSecret');
+
             if (!this.canConnect()) {
                 throw new Error('Imgur client ID is required');
             }
-            
-            // Initialize Imgur API
-            imgur.setClientID(clientId);
-            this.uploader = new ImgurAnonymousUploader(clientId);
-            
+
+            // Determine connection mode
+            const useAuthenticated = this.hasAuthenticatedCredentials();
+
+            if (useAuthenticated) {
+                console.log('Imgur: Initializing authenticated mode (higher rate limits)');
+                // Store credentials for authenticated uploads
+                this.clientId = clientId;
+                this.clientSecret = clientSecret;
+                this.uploader = 'authenticated'; // Marker for authenticated mode
+                this.isAuthenticatedMode = true;
+            } else {
+                console.log('Imgur: Initializing anonymous mode (lower rate limits)');
+                // Initialize anonymous uploader
+                imgur.setClientID(clientId);
+                this.uploader = new ImgurAnonymousUploader(clientId);
+                this.isAuthenticatedMode = false;
+            }
+
             // Test the connection
             await this.testConnection();
-            
-            this.setState('connected', 'Connected to Imgur API');
-            console.log('Imgur: Connected successfully');
-            
+
+            const modeText = useAuthenticated ? 'authenticated' : 'anonymous';
+            this.setState('connected', `Connected to Imgur API (${modeText} mode)`);
+            console.log(`Imgur: Connected successfully in ${modeText} mode`);
+
             return true;
             
         } catch (error) {
@@ -113,33 +139,78 @@ class ImgurService extends ConnectionManager {
         if (!this.uploader) {
             throw new Error('Imgur uploader not initialized');
         }
-        
+
         try {
             // Create a small test image
             const testImagePath = path.join(this.tempDir, 'test.png');
             const testImageData = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
-            
+
             fs.writeFileSync(testImagePath, testImageData);
-            
-            // Try to upload the test image
-            const result = await this.uploader.upload(testImagePath);
-            
+
+            let result;
+
+            if (this.isAuthenticatedMode) {
+                // Test authenticated upload using direct API call
+                result = await this.uploadImageAuthenticated(testImagePath);
+            } else {
+                // Test anonymous upload
+                result = await this.uploader.upload(testImagePath);
+            }
+
             // Clean up test file
             fs.unlinkSync(testImagePath);
-            
+
             if (result && result.url) {
                 console.log('Imgur: Test upload successful');
                 return true;
             } else {
                 throw new Error('Test upload failed - no URL returned');
             }
-            
+
         } catch (error) {
             console.error('Imgur test connection failed:', error);
             throw error;
         }
     }
-    
+
+    /**
+     * Upload image using authenticated API (OAuth)
+     */
+    async uploadImageAuthenticated(imagePath) {
+        const FormData = require('form-data');
+        const fetch = require('node-fetch');
+
+        try {
+            const form = new FormData();
+            form.append('image', fs.createReadStream(imagePath));
+
+            const response = await fetch('https://api.imgur.com/3/image', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Client-ID ${this.clientId}`,
+                    ...form.getHeaders()
+                },
+                body: form
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.data) {
+                return {
+                    url: data.data.link,
+                    deleteHash: data.data.deletehash,
+                    id: data.data.id
+                };
+            } else {
+                throw new Error(data.data?.error || 'Upload failed');
+            }
+
+        } catch (error) {
+            console.error('Authenticated upload failed:', error);
+            throw error;
+        }
+    }
+
     /**
      * Upload image from buffer or file path
      */
@@ -174,7 +245,13 @@ class ImgurService extends ConnectionManager {
             }
             
             console.log('Imgur: Uploading image...');
-            const uploadResult = await this.uploader.upload(tempFilePath);
+
+            let uploadResult;
+            if (this.isAuthenticatedMode) {
+                uploadResult = await this.uploadImageAuthenticated(tempFilePath);
+            } else {
+                uploadResult = await this.uploader.upload(tempFilePath);
+            }
             
             if (!uploadResult || !uploadResult.url) {
                 throw new Error('Upload failed - no URL returned');
@@ -312,11 +389,23 @@ class ImgurService extends ConnectionManager {
      */
     getStats() {
         const baseStats = super.getStats();
-        
+
+        const hasClientId = this.configManager.get('imgur.clientId') ? true : false;
+        const hasClientSecret = this.configManager.get('imgur.clientSecret') ? true : false;
+
+        let mode = 'not configured';
+        if (hasClientId && hasClientSecret) {
+            mode = 'authenticated';
+        } else if (hasClientId) {
+            mode = 'anonymous';
+        }
+
         return {
             ...baseStats,
             cacheSize: this.uploadCache.size,
-            clientId: this.configManager.get('imgur.clientId') ? 'configured' : 'not configured',
+            clientId: hasClientId ? 'configured' : 'not configured',
+            clientSecret: hasClientSecret ? 'configured' : 'not configured',
+            mode: mode,
             tempDir: this.tempDir
         };
     }
