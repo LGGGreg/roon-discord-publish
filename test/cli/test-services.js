@@ -216,49 +216,137 @@ Roon Commands:
     
     async spotify(command, ...args) {
         console.log('\n=== Spotify Service Test ===');
-        console.log('Spotify service testing coming soon...');
-        
-        // TODO: Implement Spotify service testing
+
+        const SpotifyService = require('../../src/core/SpotifyService');
+        const ConfigManager = require('../../src/core/ConfigManager');
+
+        const configManager = new ConfigManager();
+        await configManager.loadConfig();
+        const config = configManager.getConfig();
+
+        if (!config.spotify?.client || !config.spotify?.secret) {
+            console.log('❌ Spotify not configured. Please set up Spotify credentials in config.json');
+            return;
+        }
+
+        const spotifyService = new SpotifyService(config.spotify, logger);
+
         switch (command) {
             case 'auth':
                 logger.info('Spotify', 'Testing Spotify authentication...');
+                try {
+                    await spotifyService.start();
+                    if (spotifyService.isConnected()) {
+                        console.log('✅ Spotify authentication successful');
+                    } else {
+                        console.log('❌ Spotify authentication failed');
+                    }
+                } catch (error) {
+                    console.log('❌ Spotify authentication error:', error.message);
+                }
                 break;
-                
+
             case 'search':
-                const query = args[0] || 'test';
-                logger.info('Spotify', `Searching for: ${query}`);
+                logger.info('Spotify', 'Testing Spotify search...');
+                const title = args[0] || 'Bohemian Rhapsody';
+                const artist = args[1] || 'Queen';
+                try {
+                    await spotifyService.start();
+                    const url = await spotifyService.searchTrack(title, artist);
+                    if (url) {
+                        console.log(`✅ Found Spotify URL: ${url}`);
+                    } else {
+                        console.log('❌ No Spotify URL found');
+                    }
+                } catch (error) {
+                    console.log('❌ Spotify search error:', error.message);
+                }
                 break;
-                
+
             default:
                 console.log(`
-Spotify Commands (Coming Soon):
-  auth                       - Test Spotify authentication
-  search <query>             - Search for tracks
+Spotify Commands:
+  auth                    - Test Spotify authentication
+  search [title] [artist] - Test Spotify search functionality
                 `);
+        }
+
+        if (spotifyService) {
+            await spotifyService.stop();
         }
     },
     
     async imgur(command, ...args) {
         console.log('\n=== Imgur Service Test ===');
-        console.log('Imgur service testing coming soon...');
-        
-        // TODO: Implement Imgur service testing
+
+        const ImgurService = require('../../src/core/ImgurService');
+        const ConfigManager = require('../../src/core/ConfigManager');
+
+        const configManager = new ConfigManager();
+        await configManager.loadConfig();
+        const config = configManager.getConfig();
+
+        if (!config.imgur?.clientId) {
+            console.log('❌ Imgur not configured. Please set up Imgur client ID in config.json');
+            return;
+        }
+
+        const imgurService = new ImgurService(config.imgur, logger);
+
         switch (command) {
             case 'auth':
                 logger.info('Imgur', 'Testing Imgur authentication...');
+                try {
+                    await imgurService.start();
+                    if (imgurService.isConnected()) {
+                        console.log('✅ Imgur authentication successful');
+                    } else {
+                        console.log('❌ Imgur authentication failed');
+                    }
+                } catch (error) {
+                    console.log('❌ Imgur authentication error:', error.message);
+                }
                 break;
-                
+
             case 'upload':
+                logger.info('Imgur', 'Testing image upload...');
                 const imagePath = args[0];
-                logger.info('Imgur', `Testing image upload: ${imagePath || 'test image'}`);
+                if (!imagePath) {
+                    console.log('❌ Please provide an image path');
+                    break;
+                }
+
+                try {
+                    const fs = require('fs');
+                    if (!fs.existsSync(imagePath)) {
+                        console.log('❌ Image file not found:', imagePath);
+                        break;
+                    }
+
+                    await imgurService.start();
+                    const imageData = fs.readFileSync(imagePath);
+                    const result = await imgurService.uploadImage(imageData, 'test-upload');
+
+                    if (result && result.url) {
+                        console.log(`✅ Image uploaded successfully: ${result.url}`);
+                    } else {
+                        console.log('❌ Image upload failed');
+                    }
+                } catch (error) {
+                    console.log('❌ Image upload error:', error.message);
+                }
                 break;
-                
+
             default:
                 console.log(`
-Imgur Commands (Coming Soon):
-  auth                       - Test Imgur authentication
-  upload <path>              - Test image upload
+Imgur Commands:
+  auth                    - Test Imgur authentication
+  upload <image-path>     - Test image upload
                 `);
+        }
+
+        if (imgurService) {
+            await imgurService.stop();
         }
     },
     
@@ -277,13 +365,16 @@ Imgur Commands (Coming Soon):
             case 'connect':
                 logger.info('System', 'Connecting all services...');
                 await serviceTesters.discord('connect');
-                // TODO: Add other services
+                await serviceTesters.roon('connect');
+                await serviceTesters.spotify('auth');
+                await serviceTesters.imgur('auth');
                 break;
-                
+
             case 'disconnect':
                 logger.info('System', 'Disconnecting all services...');
                 await serviceTesters.discord('disconnect');
-                // TODO: Add other services
+                await serviceTesters.roon('disconnect');
+                console.log('✅ All services disconnected');
                 break;
                 
             default:

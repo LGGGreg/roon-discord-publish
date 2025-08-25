@@ -178,59 +178,61 @@ class SpotifyService extends ConnectionManager {
     
     /**
      * Search for a track and return Spotify URL
+     * Fixed to match working console version approach
      */
     async searchTrack(title, artist, album = '') {
         if (!this.isConnected() || !this.spotifyApi) {
             throw new Error('Not connected to Spotify');
         }
-        
-        // Create cache key
-        const cacheKey = `${title}|${artist}|${album}`.toLowerCase();
-        
+
+        // Create cache key (same as console version)
+        const cacheKey = title + artist + album;
+
         // Check cache first
         if (this.searchCache.has(cacheKey)) {
             console.log('Spotify: Using cached result for', title);
             return this.searchCache.get(cacheKey);
         }
-        
+
         try {
             // Check if token needs refresh
             if (this.tokenExpiration < Date.now()) {
                 await this.refreshToken();
             }
-            
-            // Build search query
-            let query = `track:"${title}"`;
-            if (artist) {
-                query += ` artist:"${artist}"`;
+
+            // Build search query (console version format - no quotes)
+            let query = '';
+            if (title !== '') {
+                query += 'track:' + title;
             }
-            if (album) {
-                query += ` album:"${album}"`;
+            if (artist !== '') {
+                query += ' artist:' + artist;
             }
-            
+            // Note: Console version doesn't use album in query for better results
+
             console.log('Spotify: Searching for:', query);
-            
+
             const data = await this.spotifyApi.searchTracks(query, { limit: 5 });
-            
+
             let spotifyUrl = '';
-            
+
             if (data?.body?.tracks?.items?.length > 0) {
                 const track = data.body.tracks.items[0];
                 spotifyUrl = track.external_urls?.spotify || '';
                 console.log('Spotify: Found track:', track.name, 'by', track.artists[0]?.name);
             } else {
-                // Try fallback searches
-                spotifyUrl = await this.fallbackSearch(title, artist, album);
+                // Try fallback searches (console version approach)
+                spotifyUrl = await this.fallbackSearchConsoleStyle(title, artist, album, cacheKey);
             }
-            
+
             // Cache the result
             this.cacheResult(cacheKey, spotifyUrl);
-            
+
             return spotifyUrl;
-            
+
         } catch (error) {
             console.error('Spotify search error:', error);
-            
+
             if (error.statusCode === 401) {
                 // Token expired, try to refresh and retry
                 try {
@@ -240,7 +242,7 @@ class SpotifyService extends ConnectionManager {
                     console.error('Spotify token refresh failed:', refreshError);
                 }
             }
-            
+
             // Cache empty result to avoid repeated failures
             this.cacheResult(cacheKey, '');
             return '';
@@ -248,39 +250,64 @@ class SpotifyService extends ConnectionManager {
     }
     
     /**
-     * Fallback search strategies
+     * Fallback search strategies (console version approach)
      */
-    async fallbackSearch(title, artist, album) {
-        const fallbackQueries = [
-            // Try with just title and first artist (in case of multiple artists)
-            artist.includes('/') ? `track:"${title}" artist:"${artist.split('/')[0].trim()}"` : null,
-            // Try with just title and artist (no album)
-            artist ? `track:"${title}" artist:"${artist}"` : null,
-            // Try with just title
-            `track:"${title}"`,
-            // Try with just artist and title (no quotes)
-            artist ? `${title} ${artist}` : null
-        ].filter(Boolean);
-        
-        for (const query of fallbackQueries) {
+    async fallbackSearchConsoleStyle(title, artist, album, cacheKey) {
+        // Console version fallback logic
+
+        // Try with multiple artists split by '/'
+        const dualArtists = artist.split('/');
+        if (dualArtists.length > 1) {
             try {
-                console.log('Spotify: Trying fallback search:', query);
-                const data = await this.spotifyApi.searchTracks(query, { limit: 3 });
-                
-                if (data?.body?.tracks?.items?.length > 0) {
-                    const track = data.body.tracks.items[0];
-                    const url = track.external_urls?.spotify || '';
-                    if (url) {
-                        console.log('Spotify: Fallback found:', track.name);
-                        return url;
-                    }
+                console.log('Spotify: Trying with first artist only:', dualArtists[0].trim());
+                const result = await this.searchTrackDirect(title, dualArtists[0].trim(), album);
+                if (result) {
+                    return result;
                 }
             } catch (error) {
-                console.log('Spotify: Fallback search failed:', error.message);
-                continue;
+                console.log('Spotify: Multiple artist fallback failed:', error.message);
             }
         }
-        
+
+        // Try without artist (console version does this)
+        if (artist !== '') {
+            try {
+                console.log('Spotify: Trying without artist');
+                const result = await this.searchTrackDirect(title, '', album);
+                if (result) {
+                    return result;
+                }
+            } catch (error) {
+                console.log('Spotify: No artist fallback failed:', error.message);
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Direct search helper (mimics console version logic)
+     */
+    async searchTrackDirect(title, artist, album) {
+        let query = '';
+        if (title !== '') {
+            query += 'track:' + title;
+        }
+        if (artist !== '') {
+            query += ' artist:' + artist;
+        }
+
+        const data = await this.spotifyApi.searchTracks(query, { limit: 3 });
+
+        if (data?.body?.tracks?.items?.length > 0) {
+            const track = data.body.tracks.items[0];
+            const url = track.external_urls?.spotify || '';
+            if (url) {
+                console.log('Spotify: Direct search found:', track.name);
+                return url;
+            }
+        }
+
         return '';
     }
     

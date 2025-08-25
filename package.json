@@ -37,8 +37,9 @@
     "clean": "rimraf dist",
     "rebuild": "electron-rebuild",
     "postinstall": "electron-builder install-app-deps",
-    "create-exe": "pkg launcher.js --targets node16-win-x64 --output \"Roon Discord Rich Presence.exe\" && node add-icon.js",
-    "create-distribution": "npm run create-exe && node create-distribution.js",
+    "create-exe": "pkg legacy/launcher.js --targets node16-win-x64 --output \"Roon Discord Rich Presence.exe\" && node scripts/add-icon.js",
+    "create-distribution": "npm run create-exe && node scripts/create-distribution.js",
+    "console": "node legacy/roon-discord-publish.js",
     "package-clean": "rimraf working-build distribution* release-build final-build packager-dist portable* \"Roon Discord Rich Presence.exe\""
   },
   "engines": {
@@ -50,8 +51,6 @@
   "dependencies": {
     "discord-rpc": "^4.0.1",
     "form-data": "^4.0.4",
-    "fs": "^0.0.1-security",
-    "fsa": "^0.5.1",
     "imgur-anonymous-uploader": "^1.1.6",
     "imgur-node-api": "^0.1.0",
     "node-fetch": "^3.3.2",

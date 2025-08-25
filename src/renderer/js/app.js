@@ -326,12 +326,13 @@ document.addEventListener('DOMContentLoaded', () => {
         logsContent.innerHTML = '<p class="log-entry info">Logs cleared</p>';
     });
     
-    document.getElementById('export-logs')?.addEventListener('click', () => {
-        const logsContent = document.getElementById('logs-content');
-        const logs = logsContent.textContent;
-        
-        // TODO: Implement log export functionality
-        showNotification('Log export functionality coming soon', 'info');
+    document.getElementById('export-logs')?.addEventListener('click', async () => {
+        // Use the log export functionality from logs.js
+        if (window.exportLogs) {
+            await window.exportLogs();
+        } else {
+            showNotification('Log export functionality not available', 'error');
+        }
     });
     
     // Initialize with default state

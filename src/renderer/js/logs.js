@@ -42,39 +42,72 @@ document.addEventListener('DOMContentLoaded', () => {
         addLog('Logs cleared by user', 'info');
     }
     
-    function exportLogs() {
+    async function exportLogs() {
         const logText = logHistory.map(entry => {
             const timeString = entry.timestamp.toLocaleString();
             return `[${timeString}] [${entry.type.toUpperCase()}] ${entry.message}`;
         }).join('\n');
-        
-        // TODO: Implement actual file export through main process
-        // For now, copy to clipboard
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(logText).then(() => {
-                if (window.showNotification) {
-                    window.showNotification('Logs copied to clipboard', 'success');
-                }
-                addLog('Logs copied to clipboard', 'info');
-            }).catch(err => {
-                console.error('Failed to copy logs:', err);
-                if (window.showNotification) {
-                    window.showNotification('Failed to copy logs', 'error');
-                }
+
+        try {
+            // Use IPC to show save dialog and export to file
+            const { ipcRenderer } = require('electron');
+            const result = await ipcRenderer.invoke('show-save-dialog', {
+                title: 'Export Logs',
+                defaultPath: `roon-discord-logs-${new Date().toISOString().split('T')[0]}.txt`,
+                filters: [
+                    { name: 'Text Files', extensions: ['txt'] },
+                    { name: 'All Files', extensions: ['*'] }
+                ]
             });
-        } else {
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = logText;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            
-            if (window.showNotification) {
-                window.showNotification('Logs copied to clipboard', 'success');
+
+            if (!result.canceled && result.filePath) {
+                const success = await ipcRenderer.invoke('write-file', result.filePath, logText);
+                if (success) {
+                    if (window.showNotification) {
+                        window.showNotification('Logs exported successfully', 'success');
+                    }
+                    addLog(`Logs exported to: ${result.filePath}`, 'success');
+                } else {
+                    throw new Error('Failed to write log file');
+                }
             }
-            addLog('Logs copied to clipboard', 'info');
+        } catch (error) {
+            console.error('Failed to export logs to file:', error);
+
+            // Fallback to clipboard
+            if (navigator.clipboard) {
+                try {
+                    await navigator.clipboard.writeText(logText);
+                    if (window.showNotification) {
+                        window.showNotification('File export failed, logs copied to clipboard', 'warning');
+                    }
+                    addLog('File export failed, logs copied to clipboard', 'warning');
+                } catch (clipboardError) {
+                    console.error('Failed to copy logs:', clipboardError);
+                    if (window.showNotification) {
+                        window.showNotification('Failed to export logs', 'error');
+                    }
+                }
+            } else {
+                // Final fallback for browsers without clipboard API
+                const textArea = document.createElement('textarea');
+                textArea.value = logText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    if (window.showNotification) {
+                        window.showNotification('File export failed, logs copied to clipboard', 'warning');
+                    }
+                    addLog('File export failed, logs copied to clipboard', 'warning');
+                } catch (err) {
+                    console.error('Failed to copy logs:', err);
+                    if (window.showNotification) {
+                        window.showNotification('Failed to export logs', 'error');
+                    }
+                }
+                document.body.removeChild(textArea);
+            }
         }
     }
     
