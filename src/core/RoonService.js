@@ -171,8 +171,8 @@ class RoonService extends ConnectionManager {
         this.transport = core.services['RoonApiTransport'];
         this.image = core.services['RoonApiImage'];
 
-        // SIMPLIFIED: No complex token saving logic like console version
-        // The console version doesn't do complex token management
+        // Save pairing state to config for future use
+        this.savePairingState(core);
 
         // Set connection state to connected
         this.setState(ConnectionManager.ConnectionState.CONNECTED, 'Core paired successfully');
@@ -219,7 +219,35 @@ class RoonService extends ConnectionManager {
             }, 2000); // Wait 2 seconds before attempting reconnection
         }
     }
-    
+
+    /**
+     * Save pairing state to configuration
+     * @param {Object} core - Roon core object
+     */
+    savePairingState(core) {
+        try {
+            if (!this.roon || !core) {
+                console.log('Cannot save pairing state - missing roon or core');
+                return;
+            }
+
+            // Get the current config from Roon API
+            const roonConfig = this.roon.save_config();
+
+            if (roonConfig) {
+                // Save to our config manager
+                this.configManager.set('roonstate.tokens', roonConfig, false);
+                this.configManager.set('roonstate.paired_core_id', core.core_id, true);
+
+                console.log(`Roon pairing state saved for core: ${core.display_name}`);
+            } else {
+                console.log('No Roon config to save');
+            }
+        } catch (error) {
+            console.error('Error saving Roon pairing state:', error);
+        }
+    }
+
     /**
      * Handle core found during discovery
      */

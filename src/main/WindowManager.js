@@ -2,13 +2,16 @@
  * WindowManager - Handles Electron window creation and management
  */
 
-const { BrowserWindow, Menu, shell } = require('electron');
+const { BrowserWindow, Menu, shell, Tray, nativeImage, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 class WindowManager {
-    constructor(logger) {
+    constructor(logger, configManager) {
         this.logger = logger;
+        this.configManager = configManager;
         this.mainWindow = null;
+        this.tray = null;
         this.isQuitting = false;
     }
 
@@ -55,14 +58,15 @@ class WindowManager {
         this.mainWindow.on('close', (event) => {
             if (!this.isQuitting) {
                 event.preventDefault();
-                this.mainWindow.hide();
-                
-                if (process.platform === 'darwin') {
-                    // On macOS, keep app running in dock
-                    this.logger?.info('Window', 'Window hidden, app still running');
-                } else {
-                    // On Windows/Linux, minimize to system tray if available
+
+                const minimizeToTray = this.configManager?.get('app.minimize_to_tray', true);
+
+                if (minimizeToTray && this.tray) {
+                    this.mainWindow.hide();
                     this.logger?.info('Window', 'Window minimized to system tray');
+                } else {
+                    this.mainWindow.minimize();
+                    this.logger?.info('Window', 'Window minimized to taskbar');
                 }
             }
         });
@@ -244,6 +248,100 @@ class WindowManager {
     }
 
     /**
+     * Create system tray
+     */
+    createTray() {
+        try {
+            // Check if tray should be enabled
+            const minimizeToTray = this.configManager?.get('app.minimize_to_tray', true);
+            if (!minimizeToTray) {
+                this.logger?.info('Window', 'System tray disabled in configuration');
+                return;
+            }
+
+            // Use the existing PNG icon for the tray
+            const iconPath = path.join(__dirname, '../../assets/icon.png');
+
+            if (!fs.existsSync(iconPath)) {
+                this.logger?.warn('Window', 'Tray icon not found at:', iconPath);
+                return;
+            }
+
+            // Create the tray icon
+            const icon = nativeImage.createFromPath(iconPath);
+
+            // Resize icon for tray (16x16 on Windows/Linux, 22x22 on macOS)
+            const trayIcon = icon.resize({ width: 16, height: 16 });
+
+            this.tray = new Tray(trayIcon);
+
+            // Set tooltip
+            this.tray.setToolTip('Roon Discord Rich Presence');
+
+            // Create context menu
+            const contextMenu = Menu.buildFromTemplate([
+                {
+                    label: 'Show',
+                    click: () => {
+                        this.show();
+                    }
+                },
+                {
+                    label: 'Hide',
+                    click: () => {
+                        this.hide();
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Settings',
+                    click: () => {
+                        this.show();
+                        // Switch to config tab
+                        this.mainWindow?.webContents.send('navigate-to-tab', 'config');
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: 'About',
+                    click: () => {
+                        dialog.showMessageBox(this.mainWindow, {
+                            type: 'info',
+                            title: 'About',
+                            message: 'Roon Discord Rich Presence',
+                            detail: 'A bridge between Roon and Discord to show your music status.\n\nVersion: 0.7.0'
+                        });
+                    }
+                },
+                {
+                    label: 'Quit',
+                    click: () => {
+                        this.quit();
+                    }
+                }
+            ]);
+
+            this.tray.setContextMenu(contextMenu);
+
+            // Handle tray click (show/hide window)
+            this.tray.on('click', () => {
+                if (this.mainWindow) {
+                    if (this.mainWindow.isVisible()) {
+                        this.hide();
+                    } else {
+                        this.show();
+                    }
+                }
+            });
+
+            this.logger?.info('Window', 'System tray created successfully');
+
+        } catch (error) {
+            this.logger?.error('Window', `Failed to create system tray: ${error.message}`);
+        }
+    }
+
+    /**
      * Show the main window
      */
     show() {
@@ -277,6 +375,13 @@ class WindowManager {
      */
     quit() {
         this.isQuitting = true;
+
+        // Destroy tray
+        if (this.tray) {
+            this.tray.destroy();
+            this.tray = null;
+        }
+
         if (this.mainWindow) {
             this.mainWindow.close();
         }

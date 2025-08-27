@@ -30,12 +30,15 @@ async function initializeApp() {
         logger = new Logger();
         logger.info('App', 'Starting Roon Discord Rich Presence...');
 
-        // Initialize window manager
-        windowManager = new WindowManager(logger);
-
-        // Initialize service coordinator
-        serviceCoordinator = new ServiceCoordinator(logger, windowManager);
+        // Initialize service coordinator first to get config manager
+        serviceCoordinator = new ServiceCoordinator(logger, null);
         await serviceCoordinator.initialize();
+
+        // Initialize window manager with config manager
+        windowManager = new WindowManager(logger, serviceCoordinator.getConfigManager());
+
+        // Set window manager in service coordinator
+        serviceCoordinator.windowManager = windowManager;
 
         // Initialize IPC handlers
         ipcHandlers = new IPCHandlers(
@@ -46,9 +49,10 @@ async function initializeApp() {
         );
         ipcHandlers.registerAll();
 
-        // Create main window and menu
+        // Create main window, menu, and tray
         windowManager.createMainWindow();
         windowManager.createMenu();
+        windowManager.createTray();
 
         // Start services
         await serviceCoordinator.startServices();
@@ -67,105 +71,7 @@ async function initializeApp() {
 
 // Legacy help window function removed
 
-function createTray() {
-    try {
-        // Use the existing PNG icon for the tray
-        const iconPath = path.join(__dirname, '../../assets/icon.png');
-
-        if (!fs.existsSync(iconPath)) {
-            console.log('Tray icon not found at:', iconPath);
-            return;
-        }
-
-        // Create the tray icon
-        const icon = nativeImage.createFromPath(iconPath);
-
-        // Resize icon for tray (16x16 on Windows/Linux, 22x22 on macOS)
-        const trayIcon = icon.resize({ width: 16, height: 16 });
-
-        tray = new Tray(trayIcon);
-
-        // Set tooltip
-        tray.setToolTip('Roon Discord Rich Presence');
-
-        // Create context menu
-        const contextMenu = Menu.buildFromTemplate([
-            {
-                label: 'Show',
-                click: () => {
-                    if (mainWindow) {
-                        mainWindow.show();
-                        mainWindow.focus();
-                    }
-                }
-            },
-            {
-                label: 'Hide',
-                click: () => {
-                    if (mainWindow) {
-                        mainWindow.hide();
-                    }
-                }
-            },
-            { type: 'separator' },
-            {
-                label: 'Settings',
-                click: () => {
-                    if (mainWindow) {
-                        mainWindow.show();
-                        mainWindow.focus();
-                        // Switch to config tab
-                        mainWindow.webContents.send('switch-tab', 'config');
-                    }
-                }
-            },
-            {
-                label: 'Help',
-                click: () => {
-                    createHelpWindow();
-                }
-            },
-            { type: 'separator' },
-            {
-                label: 'About',
-                click: () => {
-                    dialog.showMessageBox(mainWindow, {
-                        type: 'info',
-                        title: 'About',
-                        message: 'Roon Discord Rich Presence',
-                        detail: 'A bridge between Roon and Discord to show your music status.\n\nVersion: 1.0.0'
-                    });
-                }
-            },
-            {
-                label: 'Quit',
-                click: () => {
-                    isQuitting = true;
-                    app.quit();
-                }
-            }
-        ]);
-
-        tray.setContextMenu(contextMenu);
-
-        // Handle tray click (show/hide window)
-        tray.on('click', () => {
-            if (mainWindow) {
-                if (mainWindow.isVisible()) {
-                    mainWindow.hide();
-                } else {
-                    mainWindow.show();
-                    mainWindow.focus();
-                }
-            }
-        });
-
-        console.log('✅ System tray created successfully');
-
-    } catch (error) {
-        console.error('❌ Failed to create system tray:', error.message);
-    }
-}
+// Tray functionality moved to WindowManager
 
 function createMenu() {
     const template = [
