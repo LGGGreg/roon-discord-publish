@@ -23,7 +23,17 @@ class ImgurService extends ConnectionManager {
         this.uploadCache = new Map();
         this.maxCacheSize = 50;
         this.tempDir = path.join(__dirname, '../../temp');
-        
+
+        // Listen for config changes
+        this.configManager.on('config-changed', (path, value) => {
+            if (path === 'imgur.clientId' || path === 'imgur.clientSecret') {
+                console.log('Imgur configuration changed, reconnecting...');
+                if (this.isConnected() || this.canConnect()) {
+                    this.reconnect(true);
+                }
+            }
+        });
+
         // Ensure temp directory exists
         this.ensureTempDir();
     }
@@ -52,12 +62,12 @@ class ImgurService extends ConnectionManager {
 
     /**
      * Check if authenticated mode is available (has both Client ID and Secret)
+     * Note: Currently only anonymous mode is supported, matching legacy console app behavior
      * @returns {boolean} Has both credentials for authenticated uploads
      */
     hasAuthenticatedCredentials() {
-        const clientId = this.configManager.get('imgur.clientId');
-        const clientSecret = this.configManager.get('imgur.clientSecret');
-        return !!(clientId && clientId.trim() && clientSecret && clientSecret.trim());
+        // Authenticated mode is disabled - only anonymous uploads supported
+        return false;
     }
 
     /**
@@ -79,8 +89,8 @@ class ImgurService extends ConnectionManager {
                 throw new Error('Imgur client ID is required');
             }
 
-            // Determine connection mode
-            const useAuthenticated = this.hasAuthenticatedCredentials();
+            // Always use anonymous mode (like legacy console app)
+            const useAuthenticated = false;
 
             if (useAuthenticated) {
                 console.log('Imgur: Initializing authenticated mode (higher rate limits)');
@@ -178,7 +188,7 @@ class ImgurService extends ConnectionManager {
      */
     async uploadImageAuthenticated(imagePath) {
         const FormData = require('form-data');
-        const fetch = require('node-fetch');
+        const { default: fetch } = await import('node-fetch');
 
         try {
             const form = new FormData();

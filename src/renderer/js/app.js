@@ -351,6 +351,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Menu IPC handlers
+    ipcRenderer.on('navigate-to-tab', (event, tabName) => {
+        const tabButton = document.querySelector(`[data-tab="${tabName}"]`);
+        if (tabButton) {
+            tabButton.click();
+        }
+    });
+
+    ipcRenderer.on('export-config-from-menu', async () => {
+        // Switch to config tab first
+        const configTab = document.querySelector('[data-tab="config"]');
+        if (configTab) {
+            configTab.click();
+            // Wait a moment for tab to load
+            setTimeout(() => {
+                if (window.exportConfiguration) {
+                    window.exportConfiguration();
+                }
+            }, 100);
+        }
+    });
+
+    ipcRenderer.on('import-config-from-menu', async () => {
+        // Switch to config tab first
+        const configTab = document.querySelector('[data-tab="config"]');
+        if (configTab) {
+            configTab.click();
+            // Wait a moment for tab to load
+            setTimeout(() => {
+                if (window.importConfiguration) {
+                    window.importConfiguration();
+                }
+            }, 100);
+        }
+    });
+
+    // Services menu handlers
+    ipcRenderer.on('reconnect-all-services', () => {
+        document.getElementById('reconnect-all')?.click();
+    });
+
+    ipcRenderer.on('service-action', async (event, serviceName, action) => {
+        try {
+            if (action === 'connect') {
+                await ipcRenderer.invoke(`${serviceName}-connect`);
+                addLogEntry(`${serviceName} connection initiated from menu`, 'info');
+            } else if (action === 'disconnect') {
+                await ipcRenderer.invoke(`${serviceName}-disconnect`);
+                addLogEntry(`${serviceName} disconnection initiated from menu`, 'info');
+            }
+        } catch (error) {
+            addLogEntry(`${serviceName} ${action} error: ${error.message}`, 'error');
+        }
+    });
+
     // Initialize with default state
     addLogEntry('Application initialized', 'success');
 });

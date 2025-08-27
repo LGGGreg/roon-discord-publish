@@ -94,7 +94,20 @@ class WindowManager {
                         label: 'Preferences',
                         accelerator: 'CmdOrCtrl+,',
                         click: () => {
-                            this.mainWindow?.webContents.send('show-preferences');
+                            this.mainWindow?.webContents.send('navigate-to-tab', 'config');
+                        }
+                    },
+                    { type: 'separator' },
+                    {
+                        label: 'Export Configuration...',
+                        click: () => {
+                            this.mainWindow?.webContents.send('export-config-from-menu');
+                        }
+                    },
+                    {
+                        label: 'Import Configuration...',
+                        click: () => {
+                            this.mainWindow?.webContents.send('import-config-from-menu');
                         }
                     },
                     { type: 'separator' },
@@ -109,17 +122,7 @@ class WindowManager {
                     }
                 ]
             },
-            {
-                label: 'Edit',
-                submenu: [
-                    { role: 'undo' },
-                    { role: 'redo' },
-                    { type: 'separator' },
-                    { role: 'cut' },
-                    { role: 'copy' },
-                    { role: 'paste' }
-                ]
-            },
+
             {
                 label: 'View',
                 submenu: [
@@ -191,15 +194,16 @@ class WindowManager {
                 label: 'Help',
                 submenu: [
                     {
-                        label: 'About',
+                        label: 'Setup',
                         click: () => {
-                            this.mainWindow?.webContents.send('show-about');
+                            this.mainWindow?.webContents.send('navigate-to-tab', 'help');
                         }
                     },
+                    { type: 'separator' },
                     {
-                        label: 'Learn More',
+                        label: 'About',
                         click: () => {
-                            shell.openExternal('https://github.com/your-repo/roon-discord');
+                            shell.openExternal('https://github.com/LGGGreg/roon-discord-publish');
                         }
                     }
                 ]

@@ -202,7 +202,10 @@ class ConnectionManager extends EventEmitter {
             this.clearConnectionTimeout();
             
             if (success) {
-                this.setState(ConnectionState.CONNECTED, 'Connection established');
+                // Only set generic message if service hasn't already set a specific one
+                if (this.state !== ConnectionState.CONNECTED) {
+                    this.setState(ConnectionState.CONNECTED, 'Connection established');
+                }
                 return true;
             } else {
                 throw new Error('Connection failed');

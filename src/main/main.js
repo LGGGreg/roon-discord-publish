@@ -400,6 +400,17 @@ ipcMain.handle('close-help-window', async (event) => {
     }
 });
 
+ipcMain.handle('navigate-help-to-section', async (event, section) => {
+    try {
+        // TODO: Implement help section navigation in WindowManager
+        console.log(`Navigate help to section: ${section}`);
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to navigate help to section:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 // Add proper quit handler for UI
 ipcMain.handle('quit-app', async (event) => {
     try {

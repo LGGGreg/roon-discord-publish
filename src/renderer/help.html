@@ -199,7 +199,7 @@
             
             <h3>Step 1: Create a Discord Application</h3>
             <ol>
-                <li>Go to <strong>https://discord.com/developers/applications</strong></li>
+                <li>Go to <strong><a href="#" onclick="openExternal('https://discord.com/developers/applications')">https://discord.com/developers/applications</a></strong></li>
                 <li>Click <strong>"New Application"</strong></li>
                 <li>Enter a name like <code>My Music Status</code> or <code>Roon Rich Presence</code></li>
                 <li>Click <strong>"Create"</strong></li>
@@ -227,39 +227,28 @@
 
         <div class="help-section" id="roon">
             <h2>🎵 Roon Configuration</h2>
-            <p>Roon setup involves connecting to your Roon Core and selecting which zone to monitor.</p>
-            
-            <h3>Automatic Discovery (Recommended)</h3>
+            <p>Roon setup is now fully automatic! The app will automatically discover and connect to your Roon Core.</p>
+
+            <h3>Automatic Setup (Default)</h3>
             <ol>
-                <li>Ensure <strong>"Use Discovery"</strong> is enabled in the app configuration</li>
-                <li>Make sure your Roon Core is running on the same network</li>
-                <li>The app will automatically find and connect to your Roon Core</li>
-                <li>You'll see a pairing request in Roon - accept it</li>
+                <li>Make sure your <strong>Roon Core is running</strong> on the same network</li>
+                <li>Start this application</li>
+                <li>The app will automatically discover your Roon Core</li>
+                <li>In Roon, you'll see a <strong>pairing request</strong> - click <strong>"Accept"</strong></li>
+                <li>The app will automatically detect the currently playing track from any zone</li>
             </ol>
-            
-            <h3>Manual Configuration</h3>
-            <p>If automatic discovery doesn't work:</p>
-            <ol>
-                <li>Disable <strong>"Use Discovery"</strong> in the app configuration</li>
-                <li>Find your Roon Core's IP address:
-                    <ul>
-                        <li>In Roon, go to <strong>Settings → General → About</strong></li>
-                        <li>Look for the IP address under "Roon Core"</li>
-                    </ul>
-                </li>
-                <li>Enter this IP address in the <strong>"Roon Core IP"</strong> field</li>
-                <li>Save the configuration and restart the app</li>
-            </ol>
-            
-            <h3>Zone Selection</h3>
-            <p>Choose which Roon zone to monitor:</p>
-            <ol>
-                <li>Once connected, go to the Status page</li>
-                <li>You'll see a list of available zones</li>
-                <li>Select the zone you want to monitor</li>
-                <li>The app will now show what's playing in that zone</li>
-            </ol>
-            
+
+            <h3>What You'll See</h3>
+            <ul>
+                <li><strong>Status Page:</strong> Shows connection status and currently playing track</li>
+                <li><strong>Now Playing:</strong> Displays track info, artist, album, and artwork</li>
+                <li><strong>Automatic Zone Detection:</strong> Monitors all zones and shows the currently playing track</li>
+            </ul>
+
+            <div class="success">
+                <strong>✅ That's it!</strong> No manual configuration needed. The app automatically handles zone detection and track monitoring.
+            </div>
+
             <div class="warning">
                 <strong>⚠️ Important:</strong> Your Roon Core must be running and accessible on the network for the app to work.
             </div>
@@ -271,7 +260,7 @@
 
             <h3>Step 1: Create a Spotify App</h3>
             <ol>
-                <li>Go to <strong>https://developer.spotify.com/dashboard</strong></li>
+                <li>Go to <strong><a href="#" onclick="openExternal('https://developer.spotify.com/dashboard')">https://developer.spotify.com/dashboard</a></strong></li>
                 <li>Log in with your Spotify account</li>
                 <li>Click <strong>"Create an App"</strong></li>
                 <li>Fill in the app details and create the app</li>
@@ -281,8 +270,9 @@
             <ol>
                 <li>In your new app, copy the <strong>"Client ID"</strong></li>
                 <li>Click <strong>"Show Client Secret"</strong> and copy the <strong>"Client Secret"</strong></li>
-                <li>Enter the Client ID in the <code>spotify.client</code> field</li>
-                <li>Enter the Client Secret in the <code>spotify.secret</code> field</li>
+                <li>Go to the <strong>Configuration</strong> tab in this app</li>
+                <li>Enter the Client ID in the <strong>"Spotify Client ID"</strong> field</li>
+                <li>Enter the Client Secret in the <strong>"Spotify Client Secret"</strong> field</li>
             </ol>
 
             <div class="info">
@@ -296,7 +286,7 @@
 
             <h3>Step 1: Register an Imgur Application</h3>
             <ol>
-                <li>Go to <strong>https://api.imgur.com/oauth2/addclient</strong></li>
+                <li>Go to <strong><a href="#" onclick="openExternal('https://api.imgur.com/oauth2/addclient')">https://api.imgur.com/oauth2/addclient</a></strong></li>
                 <li>Log in or create an Imgur account</li>
                 <li>Create an application and get your Client ID</li>
             </ol>
@@ -304,7 +294,8 @@
             <h3>Step 2: Configure in App</h3>
             <ol>
                 <li>Copy your Imgur Client ID</li>
-                <li>Paste it into the <code>imgur.clientId</code> field in the app configuration</li>
+                <li>Go to the <strong>Configuration</strong> tab in this app</li>
+                <li>Paste it into the <strong>"Imgur Client ID"</strong> field</li>
             </ol>
 
             <div class="warning">
@@ -352,14 +343,59 @@
         </div>
     </div>
 
+    <!-- Include required JavaScript files -->
+    <script src="js/app.js"></script>
+    <script src="js/help.js"></script>
+
     <script>
-        // Function to close the help window
+        // Function to open external URLs
+        function openExternal(url) {
+            try {
+                if (window.require) {
+                    const { shell } = window.require('electron');
+                    shell.openExternal(url);
+                } else {
+                    // Fallback for non-Electron environments
+                    window.open(url, '_blank');
+                }
+            } catch (error) {
+                console.error('Failed to open external URL:', error);
+                // Last resort fallback
+                window.open(url, '_blank');
+            }
+        }
+
+        // Function to close the help window and return to main app
         function closeHelpWindow() {
-            if (window.require) {
-                const { ipcRenderer } = window.require('electron');
-                ipcRenderer.invoke('close-help-window');
-            } else {
-                // Fallback: close the window
+            try {
+                // If we're in the main app (help tab), just navigate to status tab
+                if (window.parent === window && document.querySelector('[data-tab="status"]')) {
+                    // We're in the main app, just switch tabs
+                    const statusTab = document.querySelector('[data-tab="status"]');
+                    if (statusTab) {
+                        statusTab.click();
+                        return;
+                    }
+                }
+
+                // If this is a separate help window, try to communicate with main window
+                if (window.require) {
+                    const { ipcRenderer } = window.require('electron');
+                    // Send message to main process to navigate to status tab
+                    ipcRenderer.send('navigate-to-tab', 'status');
+                    // Close this help window
+                    window.close();
+                } else {
+                    // Fallback: just close the window or go back
+                    if (window.history.length > 1) {
+                        window.history.back();
+                    } else {
+                        window.close();
+                    }
+                }
+            } catch (error) {
+                console.error('Error closing help window:', error);
+                // Fallback
                 window.close();
             }
         }

@@ -40,23 +40,49 @@ Check the Logs tab for detailed error messages if you encounter issues.`);
 }
 
 /**
- * Open help guide to a specific section
- * @param {string} section - The section to navigate to (discord, roon, spotify, imgur, troubleshooting)
+ * Open the full help guide window and navigate to a specific section
+ * @param {string} section - The section ID to scroll to (discord, roon, spotify, imgur, troubleshooting)
  */
 async function openHelpSection(section) {
     try {
+        // Open the full help guide window first
+        await openHelpWindow();
+
+        // Store the section to navigate to for when the help window loads
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
-            await ipcRenderer.invoke('open-help-window', section);
-        } else {
-            // Fallback: show inline help for the section
-            showInlineHelp(section);
+            // Send the section to navigate to
+            await ipcRenderer.invoke('navigate-help-to-section', section);
         }
     } catch (error) {
         console.error('Failed to open help section:', error);
 
-        // Fallback to opening the full help
+        // Fallback: just open the help window
         openHelpWindow();
+    }
+}
+
+/**
+ * Smooth scroll to a specific section
+ * @param {string} sectionId - The section ID to scroll to
+ */
+function scrollToSection(sectionId) {
+    const targetElement = document.getElementById(sectionId);
+    if (targetElement) {
+        targetElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+            inline: 'nearest'
+        });
+
+        // Optional: Add a subtle highlight effect
+        targetElement.style.transition = 'background-color 0.3s ease';
+        targetElement.style.backgroundColor = 'rgba(var(--accent-primary-rgb), 0.1)';
+        setTimeout(() => {
+            targetElement.style.backgroundColor = '';
+        }, 2000);
+    } else {
+        console.warn(`Help section '${sectionId}' not found`);
     }
 }
 
@@ -208,9 +234,75 @@ if (typeof module !== 'undefined' && module.exports) {
     };
 }
 
+/**
+ * Toggle expandable help section
+ * @param {string} section - The section to toggle (discord, roon, spotify, imgur, troubleshooting)
+ */
+function toggleHelpSection(section) {
+    try {
+        const card = document.getElementById(`${section}-card`);
+        const details = document.getElementById(`${section}-help-details`);
+        const button = card?.querySelector('button');
+
+        if (!card || !details) {
+            console.warn(`Help section '${section}' not found`);
+            console.log(`Looking for card: ${section}-card, details: ${section}-help-details`);
+            return;
+        }
+
+        const isExpanded = details.style.display !== 'none';
+
+        if (isExpanded) {
+            // Collapse
+            details.style.display = 'none';
+            card.classList.remove('expanded');
+            if (button) button.textContent = button.textContent.replace('▲', '▼');
+        } else {
+            // Expand
+            details.style.display = 'block';
+            card.classList.add('expanded');
+            if (button) button.textContent = button.textContent.replace('▼', '▲');
+
+            // Scroll to the section smoothly
+            setTimeout(() => {
+                card.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                    inline: 'nearest'
+                });
+            }, 100);
+        }
+    } catch (error) {
+        console.error('Error toggling help section:', error);
+    }
+}
+
+/**
+ * Function to open external URLs
+ * @param {string} url - The URL to open
+ */
+function openExternal(url) {
+    try {
+        if (window.require) {
+            const { shell } = window.require('electron');
+            shell.openExternal(url);
+        } else {
+            // Fallback for non-Electron environments
+            window.open(url, '_blank');
+        }
+    } catch (error) {
+        console.error('Failed to open external URL:', error);
+        // Last resort fallback
+        window.open(url, '_blank');
+    }
+}
+
 // Make functions available globally for onclick handlers
 if (typeof window !== 'undefined') {
     window.openHelpWindow = openHelpWindow;
     window.openHelpSection = openHelpSection;
+    window.scrollToSection = scrollToSection;
     window.showQuickHelp = showQuickHelp;
+    window.toggleHelpSection = toggleHelpSection;
+    window.openExternal = openExternal;
 }

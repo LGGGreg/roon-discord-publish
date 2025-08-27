@@ -194,8 +194,8 @@
                             <button class="btn btn-small test-btn" id="test-imgur">Save and Test Connection</button>
                         </div>
                         <p class="help-text">
-                            <strong>Anonymous uploads:</strong> Only Client ID required (lower rate limits)<br>
-                            <strong>Authenticated uploads:</strong> Both Client ID and Secret required (higher rate limits)<br>
+                            <strong>Anonymous uploads:</strong> Only Client ID required<br>
+                            <em>Note: Currently only anonymous mode is supported (like the legacy console app)</em><br>
                             Get your credentials from
                             <a href="#" onclick="require('electron').shell.openExternal('https://api.imgur.com/oauth2/addclient')">Imgur API Registration</a>
                         </p>
@@ -278,43 +278,221 @@
                         </button>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 2rem;">
-                        <div class="help-quick-card">
-                            <h3>🎮 Discord Setup</h3>
-                            <p>Create a Discord application and get your Client ID for rich presence integration.</p>
-                            <button class="btn btn-secondary btn-small" onclick="openHelpSection('discord')">Learn More</button>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem; margin-top: 2rem;">
+                        <!-- Discord Setup Section -->
+                        <div class="help-expandable-card" id="discord-card">
+                            <div class="help-card-header" onclick="toggleHelpSection('discord')">
+                                <h3>🎮 Discord Setup</h3>
+                                <p>Create a Discord application and get your Client ID for rich presence integration.</p>
+                                <button class="btn btn-secondary btn-small">Learn More ▼</button>
+                            </div>
+                            <div class="help-card-details" id="discord-help-details" style="display: none;">
+                                <div class="help-section-content">
+                                    <h4>Step 1: Create a Discord Application</h4>
+                                    <ol>
+                                        <li>Go to <strong><a href="#" onclick="openExternal('https://discord.com/developers/applications')">https://discord.com/developers/applications</a></strong></li>
+                                        <li>Click <strong>"New Application"</strong></li>
+                                        <li>Give it a name (e.g., "My Roon Rich Presence")</li>
+                                        <li>Click <strong>"Create"</strong></li>
+                                    </ol>
+
+                                    <h4>Step 2: Get Your Client ID</h4>
+                                    <ol>
+                                        <li>In your new application, you'll see the <strong>"Application ID"</strong></li>
+                                        <li>Copy this ID - this is your Discord Client ID</li>
+                                        <li>Go to the <strong>Configuration</strong> tab in this app</li>
+                                        <li>Paste the ID into the <strong>"Discord Client ID"</strong> field</li>
+                                        <li>Save the configuration</li>
+                                    </ol>
+
+                                    <div class="help-note">
+                                        <strong>💡 Tip:</strong> Your Discord status will appear when music is playing in Roon!
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="help-quick-card">
-                            <h3>🎵 Roon Configuration</h3>
-                            <p>Connect to your Roon Core using automatic discovery or manual IP configuration.</p>
-                            <button class="btn btn-secondary btn-small" onclick="openHelpSection('roon')">Learn More</button>
+                        <!-- Roon Configuration Section -->
+                        <div class="help-expandable-card" id="roon-card">
+                            <div class="help-card-header" onclick="toggleHelpSection('roon')">
+                                <h3>🎵 Roon Configuration</h3>
+                                <p>Roon setup is now fully automatic! The app will automatically discover and connect to your Roon Core.</p>
+                                <button class="btn btn-secondary btn-small">Learn More ▼</button>
+                            </div>
+                            <div class="help-card-details" id="roon-help-details" style="display: none;">
+                                <div class="help-section-content">
+                                    <h4>Automatic Setup (Default)</h4>
+                                    <ol>
+                                        <li>Make sure your <strong>Roon Core is running</strong> on the same network</li>
+                                        <li>Start this application</li>
+                                        <li>The app will automatically discover your Roon Core</li>
+                                        <li>In Roon, accept the pairing request:
+                                            <ul>
+                                                <li>Click the <strong>gear icon (⚙️)</strong> in the top right corner of Roon</li>
+                                                <li>Select <strong>"Settings"</strong></li>
+                                                <li>Click <strong>"Extensions"</strong> in the left sidebar</li>
+                                                <li>Find <strong>"Discord Rich Presence"</strong> and click <strong>"Enable"</strong></li>
+                                            </ul>
+                                        </li>
+                                        <li>The app will automatically detect the currently playing track from any zone</li>
+                                    </ol>
+
+                                    <h4>What You'll See</h4>
+                                    <ul>
+                                        <li><strong>Status Page:</strong> Shows connection status and currently playing track</li>
+                                        <li><strong>Now Playing:</strong> Displays track info, artist, album, and artwork</li>
+                                        <li><strong>Automatic Zone Detection:</strong> Monitors all zones and shows the currently playing track</li>
+                                    </ul>
+
+                                    <div class="help-success">
+                                        <strong>✅ That's it!</strong> No manual configuration needed. The app automatically handles zone detection and track monitoring.
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="help-quick-card">
-                            <h3>🎧 Spotify Integration</h3>
-                            <p>Optional: Add Spotify links to your Discord status for easy music sharing.</p>
-                            <button class="btn btn-secondary btn-small" onclick="openHelpSection('spotify')">Learn More</button>
+                        <!-- Spotify Integration Section -->
+                        <div class="help-expandable-card" id="spotify-card">
+                            <div class="help-card-header" onclick="toggleHelpSection('spotify')">
+                                <h3>🎧 Spotify Integration</h3>
+                                <p>Optional: Add Spotify links to your Discord status for easy music sharing.</p>
+                                <button class="btn btn-secondary btn-small">Learn More ▼</button>
+                            </div>
+                            <div class="help-card-details" id="spotify-help-details" style="display: none;">
+                                <div class="help-section-content">
+                                    <h4>Step 1: Create a Spotify App</h4>
+                                    <ol>
+                                        <li>Go to <strong><a href="#" onclick="openExternal('https://developer.spotify.com/dashboard')">https://developer.spotify.com/dashboard</a></strong></li>
+                                        <li>Log in with your Spotify account</li>
+                                        <li>Click <strong>"Create an App"</strong></li>
+                                        <li>Fill in the required information (name and description)</li>
+                                        <li>Click <strong>"Create"</strong></li>
+                                    </ol>
+
+                                    <h4>Step 2: Get Your Credentials</h4>
+                                    <ol>
+                                        <li>In your new app, copy the <strong>"Client ID"</strong></li>
+                                        <li>Click <strong>"Show Client Secret"</strong> and copy the <strong>"Client Secret"</strong></li>
+                                        <li>Go to the <strong>Configuration</strong> tab in this app</li>
+                                        <li>Enter the Client ID in the <strong>"Spotify Client ID"</strong> field</li>
+                                        <li>Enter the Client Secret in the <strong>"Spotify Client Secret"</strong> field</li>
+                                    </ol>
+
+                                    <div class="help-note">
+                                        <strong>💡 Note:</strong> Spotify integration adds "Listen on Spotify" links to your Discord status when available.
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="help-quick-card">
-                            <h3>🖼️ Imgur Setup</h3>
-                            <p>Optional: Upload album artwork to enhance your Discord rich presence.</p>
-                            <button class="btn btn-secondary btn-small" onclick="openHelpSection('imgur')">Learn More</button>
+                        <!-- Imgur Setup Section -->
+                        <div class="help-expandable-card" id="imgur-card">
+                            <div class="help-card-header" onclick="toggleHelpSection('imgur')">
+                                <h3>🖼️ Imgur Setup</h3>
+                                <p>Optional: Upload album artwork to enhance your Discord rich presence.</p>
+                                <button class="btn btn-secondary btn-small">Learn More ▼</button>
+                            </div>
+                            <div class="help-card-details" id="imgur-help-details" style="display: none;">
+                                <div class="help-section-content">
+                                    <h4>Option 1: Anonymous Mode (Recommended)</h4>
+                                    <ol>
+                                        <li>Go to <strong><a href="#" onclick="openExternal('https://api.imgur.com/oauth2/addclient')">https://api.imgur.com/oauth2/addclient</a></strong></li>
+                                        <li>Fill in the application details:
+                                            <ul>
+                                                <li><strong>Application name:</strong> Any name (e.g., "Roon Discord Rich Presence")</li>
+                                                <li><strong>Authorization type:</strong> Select <strong>"Anonymous usage without user authorization"</strong></li>
+                                                <li><strong>Authorization callback URL:</strong> Leave blank or use any URL</li>
+                                                <li><strong>Application website:</strong> Optional</li>
+                                                <li><strong>Email:</strong> Your email address</li>
+                                                <li><strong>Description:</strong> Brief description of your app</li>
+                                            </ul>
+                                        </li>
+                                        <li>Submit the form</li>
+                                        <li>Copy your <strong>Client ID</strong></li>
+                                        <li>Go to the <strong>Configuration</strong> tab in this app</li>
+                                        <li>Paste it into the <strong>"Imgur Client ID"</strong> field</li>
+                                    </ol>
+
+                                    <h4>Option 2: OAuth2 Mode (Advanced)</h4>
+                                    <p><em>For users who want authenticated uploads linked to their Imgur account:</em></p>
+                                    <ol>
+                                        <li>Go to <strong><a href="#" onclick="openExternal('https://api.imgur.com/oauth2/addclient')">https://api.imgur.com/oauth2/addclient</a></strong></li>
+                                        <li>Fill in the application details:
+                                            <ul>
+                                                <li><strong>Application name:</strong> Any name</li>
+                                                <li><strong>Authorization type:</strong> Select <strong>"OAuth 2 authorization with a callback URL"</strong></li>
+                                                <li><strong>Authorization callback URL:</strong> <code>http://localhost:8080/callback</code> (or your app's callback URL)</li>
+                                                <li><strong>Application website:</strong> Optional</li>
+                                                <li><strong>Email:</strong> Your email address</li>
+                                                <li><strong>Description:</strong> Brief description</li>
+                                            </ul>
+                                        </li>
+                                        <li>Submit the form</li>
+                                        <li>Copy both <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+                                        <li>Configure in this app:
+                                            <ul>
+                                                <li>Enter <strong>Client ID</strong> in the Imgur Client ID field</li>
+                                                <li>Enter <strong>Client Secret</strong> in the Imgur Client Secret field (if available)</li>
+                                            </ul>
+                                        </li>
+                                    </ol>
+
+                                    <div class="help-note">
+                                        <strong>💡 Anonymous vs OAuth2:</strong><br>
+                                        • <strong>Anonymous:</strong> Simpler setup, uploads are not linked to your account<br>
+                                        • <strong>OAuth2:</strong> Uploads appear in your Imgur account, higher rate limits
+                                    </div>
+
+                                    <div class="help-success">
+                                        <strong>✅ Benefit:</strong> Album artwork will appear in your Discord rich presence, making it more visually appealing!
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-primary);">
-                        <h3 style="color: var(--text-primary); margin-bottom: 1rem;">🔧 Quick Troubleshooting</h3>
-                        <ul style="color: var(--text-secondary); line-height: 1.6;">
-                            <li><strong>Discord not showing status:</strong> Check your Client ID and Discord privacy settings</li>
-                            <li><strong>Can't connect to Roon:</strong> Ensure Roon Core is running and accept the pairing request</li>
-                            <li><strong>No album artwork:</strong> Verify your Imgur Client ID or check internet connection</li>
-                            <li><strong>Spotify links not working:</strong> Double-check both Client ID and Client Secret</li>
-                        </ul>
-                        <button class="btn btn-secondary btn-small" onclick="openHelpSection('troubleshooting')" style="margin-top: 1rem;">
-                            View Full Troubleshooting Guide
-                        </button>
+                    <!-- Troubleshooting Section -->
+                    <div class="help-expandable-card" id="troubleshooting-card" style="margin-top: 2rem;">
+                        <div class="help-card-header" onclick="toggleHelpSection('troubleshooting')">
+                            <h3>🔧 Troubleshooting</h3>
+                            <p>Common issues and solutions to get everything working smoothly.</p>
+                            <button class="btn btn-secondary btn-small">View Full Guide ▼</button>
+                        </div>
+                        <div class="help-card-details" id="troubleshooting-help-details" style="display: none;">
+                            <div class="help-section-content">
+                                <h4>Discord Issues</h4>
+                                <ul>
+                                    <li><strong>Discord not showing status:</strong> Check your Client ID and Discord privacy settings</li>
+                                    <li><strong>Status shows "Unknown" game:</strong> Make sure Discord is running and you're not in invisible mode</li>
+                                    <li><strong>Rich presence not updating:</strong> Try restarting Discord and this app</li>
+                                </ul>
+
+                                <h4>Roon Connection Issues</h4>
+                                <ul>
+                                    <li><strong>Can't connect to Roon:</strong> Ensure Roon Core is running and accept the pairing request</li>
+                                    <li><strong>Connection keeps dropping:</strong> Check your network connection and firewall settings</li>
+                                    <li><strong>No track information:</strong> Make sure music is playing in Roon and the zone is active</li>
+                                </ul>
+
+                                <h4>Album Artwork Issues</h4>
+                                <ul>
+                                    <li><strong>No album artwork:</strong> Verify your Imgur Client ID or check internet connection</li>
+                                    <li><strong>Artwork not updating:</strong> Some albums may not have artwork available</li>
+                                    <li><strong>Upload failures:</strong> Check your internet connection and Imgur service status</li>
+                                </ul>
+
+                                <h4>Spotify Integration Issues</h4>
+                                <ul>
+                                    <li><strong>Spotify links not working:</strong> Double-check both Client ID and Client Secret</li>
+                                    <li><strong>Track not found on Spotify:</strong> Some tracks may not be available due to different metadata</li>
+                                    <li><strong>Links not appearing:</strong> Make sure the track is available on Spotify</li>
+                                </ul>
+
+                                <div class="help-warning">
+                                    <strong>💡 Still having issues?</strong> Check the Logs tab in the app for detailed error messages that can help identify the problem.
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
