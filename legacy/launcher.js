@@ -73,6 +73,10 @@ const child = spawn(localNodePath, [electronCli, '.'], {
     detached: true // Allow the process to continue after launcher exits
 });
 
+// Store child PID for cleanup
+const childPid = child.pid;
+console.log(`Started Node.js process with PID: ${childPid}`);
+
 let appStarted = false;
 
 child.on('error', (error) => {
@@ -149,11 +153,33 @@ function waitForKeyPress(message) {
 process.on('SIGINT', () => {
     console.log('');
     console.log('🛑 Shutting down...');
-    child.kill('SIGINT');
+    killProcessTree(childPid);
 });
 
 process.on('SIGTERM', () => {
     console.log('');
     console.log('🛑 Shutting down...');
-    child.kill('SIGTERM');
+    killProcessTree(childPid);
 });
+
+// Function to kill entire process tree on Windows
+function killProcessTree(pid) {
+    try {
+        if (os.platform() === 'win32') {
+            console.log(`Killing process tree for PID: ${pid}`);
+            const { execSync } = require('child_process');
+            execSync(`taskkill /f /t /pid ${pid}`, { stdio: 'ignore' });
+        } else {
+            // On non-Windows, just kill the process
+            child.kill('SIGTERM');
+        }
+    } catch (error) {
+        console.error('Error killing process tree:', error.message);
+        // Fallback to normal kill
+        try {
+            child.kill('SIGTERM');
+        } catch (fallbackError) {
+            console.error('Fallback kill also failed:', fallbackError.message);
+        }
+    }
+}

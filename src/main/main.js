@@ -337,6 +337,29 @@ app.on('before-quit', async (event) => {
             }
         });
 
+        // CRITICAL: Kill entire process tree on Windows to prevent lingering processes
+        // The launcher spawns: launcher.exe -> node.exe -> electron -> multiple electron processes
+        setTimeout(() => {
+            console.log('Force killing entire process tree...');
+            try {
+                if (process.platform === 'win32') {
+                    // Use Windows taskkill to kill the entire process tree
+                    const { spawn } = require('child_process');
+                    const killProcess = spawn('taskkill', ['/f', '/t', '/pid', process.pid.toString()], {
+                        stdio: 'ignore',
+                        detached: true
+                    });
+                    killProcess.unref();
+                } else {
+                    // On non-Windows, just exit normally
+                    process.exit(0);
+                }
+            } catch (error) {
+                console.error('Error killing process tree:', error);
+                process.exit(0);
+            }
+        }, 2000); // 2 second delay to allow cleanup
+
     } catch (error) {
         console.error('Error during cleanup:', error);
         // Force quit even if cleanup fails

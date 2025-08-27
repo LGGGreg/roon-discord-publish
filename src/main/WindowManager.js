@@ -102,7 +102,9 @@ class WindowManager {
                         label: 'Quit',
                         accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
                         click: () => {
-                            this.quit();
+                            // Use proper app quit instead of just window close
+                            const { app } = require('electron');
+                            app.quit();
                         }
                     }
                 ]
