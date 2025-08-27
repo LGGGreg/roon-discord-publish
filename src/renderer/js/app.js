@@ -334,7 +334,23 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Log export functionality not available', 'error');
         }
     });
-    
+
+    // Quit application button
+    document.getElementById('quit-app')?.addEventListener('click', async () => {
+        addLogEntry('Quitting application...', 'info');
+
+        try {
+            const result = await ipcRenderer.invoke('quit-app');
+            if (result.success) {
+                addLogEntry('Application quit initiated', 'success');
+            } else {
+                addLogEntry('Failed to quit application', 'error');
+            }
+        } catch (error) {
+            addLogEntry(`Error quitting application: ${error.message}`, 'error');
+        }
+    });
+
     // Initialize with default state
     addLogEntry('Application initialized', 'success');
 });

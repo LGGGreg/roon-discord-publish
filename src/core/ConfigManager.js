@@ -20,6 +20,9 @@ class ConfigManager extends EventEmitter {
         // File watcher for config changes
         this.watcher = null;
 
+        // Flag to prevent saves during initial loading
+        this.isInitializing = true;
+
         // Default configuration structure
         this.defaultConfig = {
             core_ip: "",
@@ -48,8 +51,15 @@ class ConfigManager extends EventEmitter {
         // Load configuration on initialization
         this.loadConfig();
 
-        // Start watching for config file changes
-        this.startWatching();
+        // DISABLED: Config file watcher causes Roon disconnections
+        // The "Config file changed, reloading..." triggers "MOO: empty message received"
+        // which causes Roon Core to unpair immediately
+        // this.startWatching();
+
+        // Mark initialization as complete after a delay
+        setTimeout(() => {
+            this.isInitializing = false;
+        }, 2000);
     }
     
     /**
@@ -98,13 +108,27 @@ class ConfigManager extends EventEmitter {
      */
     saveConfig(newConfig = null) {
         try {
+            // Skip saves during initialization to prevent feedback loops
+            if (this.isInitializing) {
+                console.log('Configuration save skipped during initialization');
+                return true;
+            }
+
             const oldConfig = { ...this.config };
 
             if (newConfig) {
                 this.config = this.mergeWithDefaults(newConfig);
             }
 
+            // Check if config actually changed to prevent unnecessary saves
             const configJson = JSON.stringify(this.config, null, 4);
+            const oldConfigJson = JSON.stringify(oldConfig, null, 4);
+
+            if (configJson === oldConfigJson) {
+                console.log('Configuration unchanged, skipping save');
+                return true;
+            }
+
             fs.writeFileSync(this.configPath, configJson, 'utf8');
 
             // Emit config-changed events for any changes
@@ -374,16 +398,28 @@ class ConfigManager extends EventEmitter {
         }
 
         try {
+            let isReloading = false; // Prevent feedback loops
+
             this.watcher = fs.watch(this.configPath, (eventType, filename) => {
-                if (eventType === 'change') {
+                if (eventType === 'change' && !isReloading) {
                     console.log('Config file changed, reloading...');
 
-                    // Debounce rapid file changes
+                    // Prevent feedback loops
+                    isReloading = true;
+
+                    // Debounce rapid file changes (5 seconds to prevent excessive reloads)
                     clearTimeout(this.reloadTimeout);
                     this.reloadTimeout = setTimeout(() => {
-                        this.loadConfig(true); // Pass true to indicate this is a reload
-                        this.emit('config-reloaded', this.config);
-                    }, 500);
+                        try {
+                            this.loadConfig(true); // Pass true to indicate this is a reload
+                            this.emit('config-reloaded', this.config);
+                        } finally {
+                            // Reset flag after a delay to allow for file system settling
+                            setTimeout(() => {
+                                isReloading = false;
+                            }, 1000);
+                        }
+                    }, 5000);
                 }
             });
 

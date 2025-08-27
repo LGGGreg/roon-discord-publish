@@ -161,7 +161,10 @@ class IPCHandlers {
 
         // Spotify specific handlers
         ipcMain.handle('spotify-search', async (event, title, artist, album) => {
-            if (!this.services.spotifyService) return '';
+            if (!this.services.spotifyService || !this.services.spotifyService.isConnected()) {
+                this.logger?.debug('Spotify', 'Skipping search - Spotify not connected');
+                return '';
+            }
             this.logger?.info('Spotify', `Searching for: ${title} by ${artist}`);
             return await this.services.spotifyService.searchTrack(title, artist, album);
         });
@@ -182,7 +185,8 @@ class IPCHandlers {
         ipcMain.handle('roon-set-zone', async (event, zoneId) => {
             if (!this.services.roonService) return false;
             this.logger?.info('Roon', `Setting zone to: ${zoneId}`);
-            return this.services.roonService.setCurrentZone(zoneId);
+            // Save config when user explicitly changes zone from UI
+            return this.services.roonService.setCurrentZone(zoneId, true);
         });
 
         ipcMain.handle('roon-get-current-track', () => {

@@ -317,24 +317,26 @@ async function connectToDiscord() {
         discordConnected = true;
         clearTimeout(reconnectionTimer);
 
-        if (!roonConnected) {
-            console.log("Connecting to Roon...");
+        // TEMPORARILY REMOVED: Discord dependency for Roon connection
+        // Start Roon regardless of Discord status for testing
+        // if (!roonConnected) {
+        //     console.log("Connecting to Roon...");
 
-            if (settings.app.use_discovery) {
-                roon.start_discovery();
-            } else {
-                roon.ws_connect({
-                    host: settings.core_ip + "",
-                    port: 9100,
-                    onclose: function () {
-                    },
-                    onerror: function () {
-                    },
-                });
-            }
+        //     if (settings.app.use_discovery) {
+        //         roon.start_discovery();
+        //     } else {
+        //         roon.ws_connect({
+        //             host: settings.core_ip + "",
+        //             port: 9100,
+        //             onclose: function () {
+        //             },
+        //             onerror: function () {
+        //             },
+        //         });
+        //     }
 
-            roonConnected = true;
-        }
+        //     roonConnected = true;
+        // }
     });
 
     _rpc.transport.once('close', () => {
@@ -565,6 +567,21 @@ const roon = new RoonApi({
 roon.init_services({
     required_services: [RoonApiTransport, RoonApiImage]
 });
+
+// TEMPORARILY START ROON WITHOUT DISCORD FOR TESTING
+console.log("Starting Roon discovery for testing...");
+if (settings.app.use_discovery) {
+    roon.start_discovery();
+} else {
+    roon.ws_connect({
+        host: settings.core_ip + "",
+        port: 9100,
+        onclose: function () {
+        },
+        onerror: function () {
+        },
+    });
+}
 
 connectToDiscord().then(() => {
     console.log('connected')

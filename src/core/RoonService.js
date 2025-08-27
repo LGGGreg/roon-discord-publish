@@ -14,6 +14,7 @@ class RoonService extends ConnectionManager {
             maxRetryDelay: 10000, // Cap at 10 seconds for faster perpetual retries
             healthCheckInterval: 30000,
             connectionTimeout: 20000,
+            enableHealthCheck: true, // Re-enabled with fixed logic
             perpetualRetry: true, // Enable perpetual retries
             perpetualRetryInterval: 10000, // Retry every 10 seconds when in perpetual mode
             ...options
@@ -27,16 +28,18 @@ class RoonService extends ConnectionManager {
         this.zones = new Map();
         this.currentZone = null;
         this.currentTrack = null;
+        this.lastPositionUpdate = 0; // Throttle position updates
+        this.isSubscribedToZones = false; // Prevent duplicate subscriptions
         
-        // Listen for config changes
-        this.configManager.on('config-changed', (path, value) => {
-            if (path === 'core_ip' || path === 'zone_id' || path.startsWith('app.use_discovery')) {
-                console.log('Roon configuration changed, reconnecting...');
-                if (this.isConnected()) {
-                    this.reconnect(true);
-                }
-            }
-        });
+        // DISABLED: Listen for config changes (was causing disconnections)
+        // this.configManager.on('config-changed', (path, value) => {
+        //     if (path === 'core_ip' || path === 'zone_id' || path.startsWith('app.use_discovery')) {
+        //         console.log('Roon configuration changed, reconnecting...');
+        //         if (this.isConnected()) {
+        //             this.reconnect(true);
+        //         }
+        //     }
+        // });
     }
     
     /**
@@ -69,7 +72,7 @@ class RoonService extends ConnectionManager {
             const useDiscovery = this.configManager.get('app.use_discovery', true);
             const roonState = this.configManager.get('roonstate', {});
             
-            // Create Roon API instance (using same extension ID as working console app)
+            // Create Roon API instance (EXACT SAME as working console app)
             this.roon = new RoonApi({
                 extension_id: 'moe.tdr.roon-discord-rp',
                 display_name: 'Discord Rich Presence',
@@ -79,6 +82,7 @@ class RoonService extends ConnectionManager {
                 website: 'https://boxfox.rocks',
                 core_paired: this.handleCorePaired.bind(this),
                 core_unpaired: this.handleCoreUnpaired.bind(this)
+                // REMOVED: log_level and error handler - console version doesn't have them!
             });
 
             // Initialize services
@@ -167,43 +171,15 @@ class RoonService extends ConnectionManager {
         this.transport = core.services['RoonApiTransport'];
         this.image = core.services['RoonApiImage'];
 
-        // Save pairing state after a delay to ensure pairing is complete
-        setTimeout(() => {
-            try {
-                if (this.roon && typeof this.roon.save_config === 'function') {
-                    const roonState = this.roon.save_config();
-                    console.log('Saving Roon state:', JSON.stringify(roonState, null, 2));
-
-                    if (roonState && Object.keys(roonState).length > 0) {
-                        this.configManager.set('roonstate', roonState, true);
-                        console.log('Roon pairing state saved successfully');
-
-                        // Verify it was saved
-                        const savedState = this.configManager.get('roonstate');
-                        console.log('Verified saved state:', JSON.stringify(savedState, null, 2));
-
-                        // Emit event for UI notification
-                        this.emit('tokens-saved', {
-                            service: 'roon',
-                            message: 'Roon authorization tokens saved automatically',
-                            details: 'You will not need to re-authorize when restarting the app'
-                        });
-                    } else {
-                        console.warn('Roon state is empty or undefined, not saving');
-                    }
-                } else {
-                    console.warn('Cannot save Roon config - roon object not available');
-                }
-            } catch (error) {
-                console.error('Error saving Roon config:', error);
-            }
-        }, 1000); // Wait 1 second for pairing to complete
+        // SIMPLIFIED: No complex token saving logic like console version
+        // The console version doesn't do complex token management
 
         // Set connection state to connected
         this.setState(ConnectionManager.ConnectionState.CONNECTED, 'Core paired successfully');
 
-        // Subscribe to services
-        this.subscribeToServices();
+        // CRITICAL: Subscribe to zones IMMEDIATELY like console version
+        // Don't go through subscribeToServices() - too much indirection
+        this.subscribeToZonesDirectly();
 
         // Emit with safe core info (avoid circular references)
         const safeCoreInfo = {
@@ -219,13 +195,29 @@ class RoonService extends ConnectionManager {
      */
     handleCoreUnpaired(core) {
         console.log(`Roon Core unpaired: ${core?.display_name || 'Unknown'}`);
+
+        // Check if this is a temporary network issue vs intentional unpair
+        const wasConnected = this.isConnected();
+
         this.core = null;
         this.zones.clear();
         this.currentZone = null;
         this.currentTrack = null;
-        
+        this.isSubscribedToZones = false; // Reset subscription flag
+
         this.setState(ConnectionManager.ConnectionState.DISCONNECTED, 'Core unpaired');
         this.emit('core-unpaired', core);
+
+        // If we were connected and this seems like a network issue, attempt reconnection
+        if (wasConnected && this.options.perpetualRetry) {
+            console.log('Roon: Core unpaired unexpectedly, will attempt reconnection...');
+            setTimeout(() => {
+                if (!this.isConnected()) {
+                    console.log('Roon: Attempting automatic reconnection after unpair...');
+                    this.reconnect(false); // Don't force, just try to reconnect
+                }
+            }, 2000); // Wait 2 seconds before attempting reconnection
+        }
     }
     
     /**
@@ -239,7 +231,12 @@ class RoonService extends ConnectionManager {
     /**
      * Subscribe to Roon services (simplified to match working console app)
      */
-    subscribeToServices() {
+
+
+    /**
+     * Subscribe to zones directly (EXACT console pattern)
+     */
+    subscribeToZonesDirectly() {
         if (!this.core || !this.transport) {
             console.log('Core or transport not available for subscription');
             return;
@@ -248,23 +245,119 @@ class RoonService extends ConnectionManager {
         try {
             console.log('Subscribing to Roon zones...');
 
-            // Use the exact same pattern as the working console app
-            this.transport.subscribe_zones(async (cmd, data) => {
-                try {
-                    console.log('🎵 Zones subscription command:', cmd, data ? Object.keys(data) : 'no data');
+            // EXACT SAME PATTERN as console version - NO complex state management
 
-                    if (cmd === 'Subscribed' || cmd === 'Changed') {
+            // EXACT SAME PATTERN as working console app - MINIMAL PROCESSING
+            let activeZone = null;
+            let activeZoneId = null;
+            let nextZoneId = null;
+
+            this.transport.subscribe_zones((cmd, data) => {
+                try {
+                    // CRITICAL: Console version IGNORES zones_seek_changed events completely
+                    // Processing them causes Roon Core to disconnect us!
+                    if (data && data.zones_seek_changed) {
+                        // Completely ignore seek position updates - console version doesn't handle them
+                        return;
+                    }
+
+                    console.log('🎵 Zone subscription event:', cmd, data ? Object.keys(data) : 'no data');
+
+                    // Process both Subscribed (for initial track) and Changed events
+                    // But keep processing MINIMAL to avoid disconnections
+                    if (cmd === 'Subscribed') {
+                        console.log('Processing initial zone data for track detection');
+                        // SAFE: Process initial zones data directly from the event (not from transport._zones)
                         if (data && data.zones) {
-                            console.log('🎵 Handling zones update with', data.zones.length, 'zones');
-                            this.handleZonesUpdate(data);
-                        } else if (cmd === 'Changed' && data) {
-                            console.log('🎵 Handling zone changes without zones array');
-                            // Handle zone changes that don't have zones array
-                            this.handleZoneChanges(data);
+                            for (const zone of data.zones) {
+                                if (zone && zone.state === 'playing' && zone.now_playing) {
+                                    const trackInfo = this.extractTrackInfo(zone);
+                                    if (trackInfo) {
+                                        this.currentTrack = trackInfo;
+                                        console.log('Initial track detected:', trackInfo.title, '-', trackInfo.artist);
+                                        this.emit('track-changed', trackInfo);
+                                        break; // Only process first playing zone
+                                    }
+                                }
+                            }
+                        }
+                    } else if (cmd === 'Changed') {
+                        console.log('Processing zone changes');
+                        // MINIMAL track detection - only when zones actually change
+                        if (data && data.zones_changed && this.transport && this.transport._zones) {
+                            // Find first playing zone and extract track info
+                            for (const zoneID of Object.keys(this.transport._zones)) {
+                                const zone = this.transport._zones[zoneID];
+                                if (zone && zone.state === 'playing' && zone.now_playing) {
+                                    const trackInfo = this.extractTrackInfo(zone);
+                                    if (trackInfo) {
+                                        this.currentTrack = trackInfo;
+                                        console.log('Track detected:', trackInfo.title, '-', trackInfo.artist);
+                                        this.emit('track-changed', trackInfo);
+                                        break; // Only process first playing zone
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        console.log('Ignoring unknown event:', cmd);
+                        return;
+                    }
+
+                    if (cmd === 'Changed') {
+                        if (data['zones_removed']) {
+                            // Zone removed - clear current track
+                            this.currentTrack = null;
+                            console.log('Zone removed - clearing track');
+                            this.emit('track-changed', null);
+                        } else if (data['zones_changed']) {
+                            if (!this.configManager.get('zone_id')) {
+                                // Follow zone changes if not locked to specific zone
+                                data['zones_changed'].forEach((element) => {
+                                    if (element.zone_id && element.zone_id !== activeZoneId) {
+                                        nextZoneId = element.zone_id;
+                                        activeZoneId = element.zone_id;
+                                        if (this.transport && this.transport._zones) {
+                                            activeZone = this.transport._zones[activeZoneId];
+                                        }
+                                    }
+                                });
+                            }
+
+                            // Extract track info when zones actually change (new track)
+                            if (activeZone && activeZone.now_playing) {
+                                const trackInfo = this.extractTrackInfo(activeZone);
+                                if (trackInfo) {
+                                    this.currentTrack = trackInfo;
+                                    console.log('Track changed:', trackInfo.title, '-', trackInfo.artist);
+                                    this.emit('track-changed', trackInfo);
+                                }
+                            }
+                        } else {
+                            // CRITICAL: Console version calls setStatusForZone here for track updates
+                            // Only update when we have an active zone with now_playing
+                            if (activeZone && activeZone.now_playing) {
+                                const trackInfo = this.extractTrackInfo(activeZone);
+                                if (trackInfo) {
+                                    this.currentTrack = trackInfo;
+                                    console.log('Track updated:', trackInfo.title, '-', trackInfo.artist);
+                                    this.emit('track-changed', trackInfo);
+                                }
+                            }
                         }
                     }
+
+                    // Handle zone state changes
+                    if (activeZone && activeZone.state && activeZone.state !== 'playing') {
+                        console.log("Active zone stopped, resetting");
+                        activeZone = null;
+                        activeZoneId = null;
+                        this.currentTrack = null;
+                        console.log('Zone stopped - clearing track');
+                        this.emit('track-changed', null);
+                    }
                 } catch (error) {
-                    console.error('Error in zones subscription callback:', error);
+                    console.error('Error in zones subscription:', error);
                 }
             });
 
@@ -327,16 +420,17 @@ class RoonService extends ConnectionManager {
             }
         });
 
-        // Find current zone or select default
-        this.selectCurrentZone();
-
-        this.emit('zones-updated', Array.from(this.zones.values()));
+        // DISABLED: Old zone selection logic (conflicts with console pattern)
+        // this.selectCurrentZone();
+        // this.emit('zones-updated', Array.from(this.zones.values()));
     }
 
     /**
-     * Handle zone changes (for Changed events without zones array)
+     * Handle zone changes (DISABLED - conflicts with console pattern)
      */
     handleZoneChanges(data) {
+        // DISABLED: This conflicts with the console pattern subscription
+        return;
         if (!data) return;
 
         // Handle zones_changed array
@@ -389,12 +483,18 @@ class RoonService extends ConnectionManager {
                     if (this.currentZone.now_playing) {
                         this.currentZone.now_playing.seek_position = seekUpdate.seek_position;
 
-                        // Extract updated track info with new position
-                        const trackInfo = this.extractTrackInfo(this.currentZone);
-                        if (trackInfo) {
-                            this.currentTrack = trackInfo;
-                            this.emit('track-position-changed', trackInfo);
-                            // Don't log every position update as it's too verbose
+                        // THROTTLE position updates to prevent overwhelming the system
+                        // Only emit position updates every 5 seconds to reduce event spam
+                        const now = Date.now();
+                        if (!this.lastPositionUpdate || (now - this.lastPositionUpdate) > 5000) {
+                            this.lastPositionUpdate = now;
+
+                            const trackInfo = this.extractTrackInfo(this.currentZone);
+                            if (trackInfo) {
+                                this.currentTrack = trackInfo;
+                                this.emit('track-position-changed', trackInfo);
+                                // Don't log every position update as it's too verbose
+                            }
                         }
                     }
                 }
@@ -414,9 +514,11 @@ class RoonService extends ConnectionManager {
     }
     
     /**
-     * Select current zone based on configuration
+     * Select current zone (DISABLED - conflicts with console pattern)
      */
     selectCurrentZone() {
+        // DISABLED: This conflicts with the console pattern subscription
+        return;
         const configuredZoneId = this.configManager.get('zone_id');
         
         if (configuredZoneId && this.zones.has(configuredZoneId)) {
@@ -491,7 +593,9 @@ class RoonService extends ConnectionManager {
      */
     async performHealthCheck() {
         try {
-            return !!(this.core && this.roon && this.zones.size > 0);
+            // FIXED: Don't rely on zones.size since we ignore Subscribed events
+            // Just check if we have core and roon connections like console version
+            return !!(this.core && this.roon && this.transport);
         } catch (error) {
             console.error('Roon health check failed:', error);
             return false;
@@ -553,16 +657,25 @@ class RoonService extends ConnectionManager {
     /**
      * Set current zone
      * @param {string} zoneId - Zone ID to select
+     * @param {boolean} saveConfig - Whether to save config immediately
      * @returns {boolean} Success status
      */
-    setCurrentZone(zoneId) {
+    setCurrentZone(zoneId, saveConfig = false) {
         if (!this.zones.has(zoneId)) return false;
-        
+
         this.currentZone = this.zones.get(zoneId);
-        this.configManager.set('zone_id', zoneId, true);
+
+        // Only save config when explicitly requested (e.g., from UI)
+        if (saveConfig) {
+            this.configManager.set('zone_id', zoneId, true);
+        } else {
+            // Just update in memory, don't save to file
+            this.configManager.set('zone_id', zoneId, false);
+        }
+
         this.updateQueueSubscription();
         this.emit('zone-selected', this.currentZone);
-        
+
         return true;
     }
     
@@ -570,23 +683,44 @@ class RoonService extends ConnectionManager {
      * Clean up Roon connection
      */
     async cleanupRoon() {
+        console.log('Cleaning up Roon connection...');
+
         if (this.roon) {
             try {
+                // Stop discovery
                 if (typeof this.roon.stop_discovery === 'function') {
+                    console.log('Stopping Roon discovery...');
                     this.roon.stop_discovery();
                 }
+
+                // Close any open connections
+                if (typeof this.roon.close === 'function') {
+                    console.log('Closing Roon connection...');
+                    this.roon.close();
+                }
+
+                // Remove all event listeners
+                if (typeof this.roon.removeAllListeners === 'function') {
+                    this.roon.removeAllListeners();
+                }
+
             } catch (error) {
-                console.error('Error stopping Roon discovery:', error);
+                console.error('Error stopping Roon:', error);
             }
             this.roon = null;
         }
 
+        // Clear all references
         this.transport = null;
         this.image = null;
         this.core = null;
         this.zones.clear();
         this.currentZone = null;
         this.currentTrack = null;
+        this.isSubscribedToZones = false;
+
+        this.setState(ConnectionManager.ConnectionState.DISCONNECTED, 'Disconnected');
+        console.log('Roon cleanup completed');
     }
 
     /**

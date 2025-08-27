@@ -296,19 +296,51 @@ app.on('window-all-closed', () => {
     app.quit();
 });
 
-app.on('before-quit', async () => {
-    if (windowManager) {
-        windowManager.quit();
-    }
+app.on('before-quit', async (event) => {
+    console.log('App quit initiated - cleaning up...');
 
-    // Stop all services
-    if (serviceCoordinator) {
-        await serviceCoordinator.cleanup();
-    }
+    // Prevent default quit to allow cleanup
+    event.preventDefault();
 
-    // Remove IPC handlers
-    if (ipcHandlers) {
-        ipcHandlers.removeAll();
+    try {
+        if (windowManager) {
+            windowManager.quit();
+        }
+
+        // Stop all services with timeout
+        if (serviceCoordinator) {
+            console.log('Cleaning up services...');
+            await Promise.race([
+                serviceCoordinator.cleanup(),
+                new Promise(resolve => setTimeout(resolve, 5000)) // 5 second timeout
+            ]);
+            console.log('Services cleaned up');
+        }
+
+        // Remove IPC handlers
+        if (ipcHandlers) {
+            ipcHandlers.removeAll();
+            console.log('IPC handlers removed');
+        }
+
+        console.log('Cleanup complete - forcing app quit');
+
+        // Force quit after cleanup with multiple fallbacks
+        setImmediate(() => {
+            try {
+                // Try graceful exit first
+                app.exit(0);
+            } catch (error) {
+                console.error('Graceful exit failed, forcing process exit:', error);
+                // Force process termination as last resort
+                process.exit(0);
+            }
+        });
+
+    } catch (error) {
+        console.error('Error during cleanup:', error);
+        // Force quit even if cleanup fails
+        app.exit(1);
     }
 });
 
@@ -341,6 +373,30 @@ ipcMain.handle('close-help-window', async (event) => {
         return { success: true };
     } catch (error) {
         console.error('Failed to close help window:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Add proper quit handler for UI
+ipcMain.handle('quit-app', async (event) => {
+    try {
+        console.log('Quit requested from UI');
+        isQuitting = true;
+
+        // Trigger the quit process which will handle cleanup
+        app.quit();
+
+        // Fallback: Force quit after 10 seconds if cleanup hangs
+        setTimeout(() => {
+            console.log('Force quitting after timeout');
+            app.exit(0);
+        }, 10000);
+
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to quit app:', error);
+        // Force quit on error
+        app.exit(1);
         return { success: false, error: error.message };
     }
 });
