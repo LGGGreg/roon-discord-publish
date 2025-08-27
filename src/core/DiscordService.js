@@ -27,9 +27,27 @@ class DiscordService extends ConnectionManager {
         this.configManager.on('config-changed', (path, value) => {
             if (path === 'discord.clientId') {
                 this.clientId = value;
-                if (this.isConnected()) {
-                    console.log('Discord Client ID changed, reconnecting...');
-                    this.reconnect(true);
+                console.log('Discord Client ID changed, attempting auto-reconnection...');
+
+                // If we have a valid client ID, attempt to connect/reconnect
+                if (this.canConnect()) {
+                    if (this.isConnected()) {
+                        console.log('Discord: Already connected, reconnecting with new client ID...');
+                        this.reconnect(true);
+                    } else {
+                        console.log('Discord: Not connected, attempting connection with new client ID...');
+                        // Use a small delay to ensure config is fully saved
+                        setTimeout(() => {
+                            this.connect().catch(error => {
+                                console.log('Discord: Auto-connection failed:', error.message);
+                            });
+                        }, 500);
+                    }
+                } else {
+                    console.log('Discord: Invalid or empty client ID, disconnecting...');
+                    if (this.isConnected()) {
+                        this.disconnect();
+                    }
                 }
             }
         });
@@ -70,9 +88,16 @@ class DiscordService extends ConnectionManager {
             // Register the application
             DiscordRPC.register(this.clientId);
             
-            // Attempt login
-            await this.rpc.login({ clientId: this.clientId });
-            
+            // Attempt login with timeout
+            console.log('Discord: Attempting RPC login...');
+            await Promise.race([
+                this.rpc.login({ clientId: this.clientId }),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Discord RPC login timeout - is Discord desktop app running?')), 10000)
+                )
+            ]);
+
+            console.log('Discord: RPC login successful, waiting for ready event...');
             return true;
         } catch (error) {
             await this.cleanupRPC();

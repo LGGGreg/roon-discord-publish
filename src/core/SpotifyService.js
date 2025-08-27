@@ -22,7 +22,35 @@ class SpotifyService extends ConnectionManager {
         this.tokenExpiration = Date.now();
         this.searchCache = new Map();
         this.maxCacheSize = 100;
-        
+
+        // Listen for config changes
+        this.configManager.on('config-changed', (path, value) => {
+            if (path === 'spotify.client' || path === 'spotify.secret') {
+                console.log('Spotify configuration changed, attempting auto-reconnection...');
+
+                // If we have valid credentials, attempt to connect/reconnect
+                if (this.canConnect()) {
+                    if (this.isConnected()) {
+                        console.log('Spotify: Already connected, reconnecting with new credentials...');
+                        this.reconnect(true);
+                    } else {
+                        console.log('Spotify: Not connected, attempting connection with new credentials...');
+                        // Use a small delay to ensure config is fully saved
+                        setTimeout(() => {
+                            this.connect().catch(error => {
+                                console.log('Spotify: Auto-connection failed:', error.message);
+                            });
+                        }, 500);
+                    }
+                } else {
+                    console.log('Spotify: Invalid or missing credentials, disconnecting...');
+                    if (this.isConnected()) {
+                        this.disconnect();
+                    }
+                }
+            }
+        });
+
         // Bind methods
         this.refreshToken = this.refreshToken.bind(this);
     }

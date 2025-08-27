@@ -300,7 +300,13 @@ class ImgurService extends ConnectionManager {
         if (!imageKey || imageKey === 'undefined') {
             return { url: '', delete_hash: '' };
         }
-        
+
+        // Validate that we have a valid Roon image service
+        if (!roonImageService) {
+            console.log('Imgur: No Roon image service available');
+            return { url: '', delete_hash: '' };
+        }
+
         // Check cache first
         if (this.uploadCache.has(imageKey)) {
             console.log('Imgur: Using cached Roon image for', imageKey);
@@ -321,9 +327,16 @@ class ImgurService extends ConnectionManager {
             console.log('Imgur: Downloading Roon image key=', imageKey);
             
             const imageData = await new Promise((resolve, reject) => {
+                // Set up timeout to prevent hanging requests
+                const timeout = setTimeout(() => {
+                    reject(new Error('Roon image request timeout - Roon may be unresponsive'));
+                }, 5000); // 5 second timeout
+
                 roonImageService.get_image(imageKey, imageOptions, (error, contentType, image) => {
+                    clearTimeout(timeout);
+
                     if (error || !image) {
-                        reject(new Error('Failed to get image from Roon'));
+                        reject(new Error(`Failed to get image from Roon: ${error?.message || 'No image data'}`));
                         return;
                     }
                     resolve(image);

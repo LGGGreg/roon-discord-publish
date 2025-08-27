@@ -30,6 +30,10 @@ class RoonService extends ConnectionManager {
         this.currentTrack = null;
         this.lastPositionUpdate = 0; // Throttle position updates
         this.isSubscribedToZones = false; // Prevent duplicate subscriptions
+
+        // Debounce track-changed events to prevent overwhelming the connection
+        this.trackChangeDebounceTimer = null;
+        this.pendingTrackInfo = null;
         
         // DISABLED: Listen for config changes (was causing disconnections)
         // this.configManager.on('config-changed', (path, value) => {
@@ -41,7 +45,29 @@ class RoonService extends ConnectionManager {
         //     }
         // });
     }
-    
+
+    /**
+     * Emit track-changed event with debouncing to prevent overwhelming the connection
+     * @param {Object|null} trackInfo - Track information or null to clear
+     */
+    emitTrackChanged(trackInfo) {
+        // Store the latest track info
+        this.pendingTrackInfo = trackInfo;
+
+        // Clear existing timer
+        if (this.trackChangeDebounceTimer) {
+            clearTimeout(this.trackChangeDebounceTimer);
+        }
+
+        // Set new timer to emit after a short delay
+        this.trackChangeDebounceTimer = setTimeout(() => {
+            console.log('Emitting debounced track-changed event:', this.pendingTrackInfo?.title || 'null');
+            this.emit('track-changed', this.pendingTrackInfo);
+            this.trackChangeDebounceTimer = null;
+            this.pendingTrackInfo = null;
+        }, 100); // 100ms debounce delay
+    }
+
     /**
      * Check if service can connect (Roon doesn't require credentials)
      * @returns {boolean} Can connect
@@ -205,6 +231,13 @@ class RoonService extends ConnectionManager {
         this.currentTrack = null;
         this.isSubscribedToZones = false; // Reset subscription flag
 
+        // Clean up debounce timer
+        if (this.trackChangeDebounceTimer) {
+            clearTimeout(this.trackChangeDebounceTimer);
+            this.trackChangeDebounceTimer = null;
+        }
+        this.pendingTrackInfo = null;
+
         this.setState(ConnectionManager.ConnectionState.DISCONNECTED, 'Core unpaired');
         this.emit('core-unpaired', core);
 
@@ -303,7 +336,7 @@ class RoonService extends ConnectionManager {
                                     if (trackInfo) {
                                         this.currentTrack = trackInfo;
                                         console.log('Initial track detected:', trackInfo.title, '-', trackInfo.artist);
-                                        this.emit('track-changed', trackInfo);
+                                        this.emitTrackChanged(trackInfo);
                                         break; // Only process first playing zone
                                     }
                                 }
@@ -321,7 +354,7 @@ class RoonService extends ConnectionManager {
                                     if (trackInfo) {
                                         this.currentTrack = trackInfo;
                                         console.log('Track detected:', trackInfo.title, '-', trackInfo.artist);
-                                        this.emit('track-changed', trackInfo);
+                                        this.emitTrackChanged(trackInfo);
                                         break; // Only process first playing zone
                                     }
                                 }
@@ -337,7 +370,7 @@ class RoonService extends ConnectionManager {
                             // Zone removed - clear current track
                             this.currentTrack = null;
                             console.log('Zone removed - clearing track');
-                            this.emit('track-changed', null);
+                            this.emitTrackChanged(null);
                         } else if (data['zones_changed']) {
                             if (!this.configManager.get('zone_id')) {
                                 // Follow zone changes if not locked to specific zone
@@ -358,7 +391,7 @@ class RoonService extends ConnectionManager {
                                 if (trackInfo) {
                                     this.currentTrack = trackInfo;
                                     console.log('Track changed:', trackInfo.title, '-', trackInfo.artist);
-                                    this.emit('track-changed', trackInfo);
+                                    this.emitTrackChanged(trackInfo);
                                 }
                             }
                         } else {
@@ -369,7 +402,7 @@ class RoonService extends ConnectionManager {
                                 if (trackInfo) {
                                     this.currentTrack = trackInfo;
                                     console.log('Track updated:', trackInfo.title, '-', trackInfo.artist);
-                                    this.emit('track-changed', trackInfo);
+                                    this.emitTrackChanged(trackInfo);
                                 }
                             }
                         }
@@ -382,7 +415,7 @@ class RoonService extends ConnectionManager {
                         activeZoneId = null;
                         this.currentTrack = null;
                         console.log('Zone stopped - clearing track');
-                        this.emit('track-changed', null);
+                        this.emitTrackChanged(null);
                     }
                 } catch (error) {
                     console.error('Error in zones subscription:', error);
@@ -437,7 +470,7 @@ class RoonService extends ConnectionManager {
                     const trackInfo = this.extractTrackInfo(zone);
                     if (trackInfo) {
                         this.currentTrack = trackInfo;
-                        this.emit('track-changed', trackInfo);
+                        this.emitTrackChanged(trackInfo);
                         console.log(`Track changed from zones update: ${trackInfo.title} - ${trackInfo.artist}`);
                     }
                 } else if (zone.state === 'paused' || zone.state === 'stopped') {
@@ -490,7 +523,7 @@ class RoonService extends ConnectionManager {
                         const trackInfo = this.extractTrackInfo(zone);
                         if (trackInfo) {
                             this.currentTrack = trackInfo;
-                            this.emit('track-changed', trackInfo);
+                            this.emitTrackChanged(trackInfo);
                             console.log(`Track changed from zone update: ${trackInfo.title} - ${trackInfo.artist}`);
                         }
                     } else if (zone.state === 'paused' || zone.state === 'stopped') {
@@ -571,7 +604,7 @@ class RoonService extends ConnectionManager {
                 const trackInfo = this.extractTrackInfo(this.currentZone);
                 if (trackInfo) {
                     this.currentTrack = trackInfo;
-                    this.emit('track-changed', trackInfo);
+                    this.emitTrackChanged(trackInfo);
                     console.log(`Now playing from zone: ${trackInfo.title} - ${trackInfo.artist}`);
                 }
             } else if (this.currentZone.state === 'paused' || this.currentZone.state === 'stopped') {
@@ -604,7 +637,7 @@ class RoonService extends ConnectionManager {
                         // Only emit track-changed if the zone is actually playing
                         if (this.currentZone.state === 'playing') {
                             this.currentTrack = item;
-                            this.emit('track-changed', item);
+                            this.emitTrackChanged(item);
                             console.log(`Now playing: ${item.three_line?.line1 || 'Unknown'} - ${item.three_line?.line2 || 'Unknown'}`);
                         } else {
                             console.log(`Queue updated but zone ${this.currentZone.display_name} is ${this.currentZone.state}, not emitting track-changed`);

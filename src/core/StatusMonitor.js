@@ -85,8 +85,14 @@ class StatusMonitor extends EventEmitter {
         
         // Listen to service events
         if (service.on) {
-            service.on('state-changed', (state, details) => {
-                this.handleServiceStateChange(serviceName, state, details);
+            service.on('state-changed', (stateData) => {
+                // Handle both old format (state, details) and new format (stateData object)
+                if (typeof stateData === 'object' && stateData.newState) {
+                    this.handleServiceStateChange(serviceName, stateData.newState, stateData.details);
+                } else {
+                    // Legacy format support
+                    this.handleServiceStateChange(serviceName, stateData, arguments[1]);
+                }
             });
             
             service.on('error', (error) => {

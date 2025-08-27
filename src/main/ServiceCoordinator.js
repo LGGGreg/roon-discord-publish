@@ -112,6 +112,15 @@ class ServiceCoordinator {
         this.statusMonitor.startMonitoring();
         this.logger?.info('ServiceCoordinator', 'Status monitor started');
 
+        // Listen to StatusMonitor events and forward to renderer
+        this.statusMonitor.on('service-status-changed', (serviceName, state, details) => {
+            this.notifyRenderer('service-status-changed', {
+                service: serviceName,
+                status: state,
+                details: details
+            });
+        });
+
         // Initialize debug manager
         this.debugManager = new DebugManager(this.logger);
         this.logger?.info('ServiceCoordinator', 'Debug manager initialized');
@@ -335,7 +344,11 @@ class ServiceCoordinator {
             // Update Discord activity if Discord is connected
             if (this.services.discordService && this.services.discordService.isConnected() && trackInfo) {
                 if (trackInfo.state === 'playing') {
-                    this.updateDiscordActivity(trackInfo);
+                    // Use a longer delay to completely decouple from Roon track processing
+                    // This prevents Spotify searches from interfering with Roon's message handling
+                    setTimeout(() => {
+                        this.updateDiscordActivity(trackInfo);
+                    }, 1000);
                 } else if (trackInfo.state === 'paused' || trackInfo.state === 'stopped') {
                     // Check if all zones are paused/stopped and clear Discord if so
                     if (roonService.areAllZonesPaused()) {
@@ -376,9 +389,25 @@ class ServiceCoordinator {
 
                     this.updateDiscordActivity(trackInfo);
 
-                    // TEMPORARILY DISABLED: Album art processing might be causing Roon disconnections
-                    // Send track info to renderer without album art for now
-                    this.notifyRenderer('roon-track-changed', trackInfo);
+                    // Get album art for frontend display (only if Roon connection is stable)
+                    // Use a longer delay to completely decouple from Roon track processing
+                    if (roonService.isConnected() && trackInfo.image_key) {
+                        setTimeout(() => {
+                            this.getAlbumArtForTrack(trackInfo).then(albumArt => {
+                                if (albumArt) {
+                                    trackInfo.albumArt = albumArt;
+                                }
+                                this.notifyRenderer('roon-track-changed', trackInfo);
+                            }).catch(error => {
+                                this.logger?.error('ServiceCoordinator', 'Failed to get album art for frontend:', error);
+                                // Still notify renderer even if album art fails
+                                this.notifyRenderer('roon-track-changed', trackInfo);
+                            });
+                        }, 2000); // Wait 2 seconds to completely avoid conflicts with Roon processing
+                    } else {
+                        // No album art request needed, notify immediately
+                        this.notifyRenderer('roon-track-changed', trackInfo);
+                    }
                 } else if ((newState === 'paused' || newState === 'stopped') && roonService.areAllZonesPaused()) {
                     // All zones paused/stopped - clear Discord status
                     this.logger?.info('Discord', 'All zones paused/stopped, clearing Discord status');
@@ -428,7 +457,7 @@ class ServiceCoordinator {
                 this.logger?.info('ServiceCoordinator', 'Imgur connected - retrying Discord activity update with images');
                 setTimeout(() => {
                     this.updateDiscordActivity(this.currentTrackInfo);
-                }, 1000); // Small delay to ensure connection is stable
+                }, 3000); // Even longer delay to ensure complete separation from Roon processing
             }
         });
     }
@@ -482,9 +511,9 @@ class ServiceCoordinator {
                 imageKey: trackInfo.image_key
             });
 
-            // TEMPORARILY DISABLED: Image uploads might be causing Roon disconnections
-            // Only upload to Imgur if Imgur is connected AND Roon is connected
-            if (false && this.services.imgurService && this.services.imgurService.isConnected() &&
+            // Upload to Imgur if Imgur is connected AND Roon is connected
+            // Re-enabled now that Imgur connection is stable
+            if (this.services.imgurService && this.services.imgurService.isConnected() &&
                 this.services.roonService && this.services.roonService.isConnected() && this.services.roonService.image) {
                 try {
                     // Upload album art (large image)
@@ -592,24 +621,53 @@ class ServiceCoordinator {
             return null;
         }
 
+        // Check if Roon connection is stable before making image request
+        if (!this.services.roonService.isConnected()) {
+            this.logger?.debug('ServiceCoordinator', 'Roon not connected, skipping album art request');
+            return null;
+        }
+
+        // Prevent concurrent image requests for the same image key
+        if (this.pendingImageRequests && this.pendingImageRequests.has(imageKey)) {
+            this.logger?.debug('ServiceCoordinator', `Image request already pending for key: ${imageKey}`);
+            return this.pendingImageRequests.get(imageKey);
+        }
+
+        // Initialize pending requests map if not exists
+        if (!this.pendingImageRequests) {
+            this.pendingImageRequests = new Map();
+        }
+
         try {
             this.logger?.debug('ServiceCoordinator', `Getting album art for frontend display, image key: ${imageKey}`);
 
-            // Get image from Roon as data URL for frontend display
-            const imageData = await new Promise((resolve, reject) => {
+            // Create the image request promise with timeout
+            const imageRequestPromise = new Promise((resolve, reject) => {
+                // Set up timeout to prevent hanging requests
+                const timeout = setTimeout(() => {
+                    reject(new Error('Image request timeout - Roon may be unresponsive'));
+                }, 5000); // 5 second timeout
+
                 this.services.roonService.image.get_image(imageKey, {
                     scale: 'fit',
                     width: 300,
                     height: 300,
                     format: 'image/jpeg'
                 }, (error, contentType, image) => {
+                    clearTimeout(timeout);
+
                     if (error || !image) {
-                        reject(new Error('Failed to get image from Roon'));
+                        reject(new Error(`Failed to get image from Roon: ${error?.message || 'No image data'}`));
                         return;
                     }
                     resolve({ contentType, image });
                 });
             });
+
+            // Store the promise to prevent concurrent requests
+            this.pendingImageRequests.set(imageKey, imageRequestPromise);
+
+            const imageData = await imageRequestPromise;
 
             // Convert to data URL for frontend display
             const base64Image = imageData.image.toString('base64');
@@ -621,6 +679,11 @@ class ServiceCoordinator {
         } catch (error) {
             this.logger?.error('ServiceCoordinator', 'Error getting album art for frontend:', error);
             return null;
+        } finally {
+            // Clean up pending request
+            if (this.pendingImageRequests) {
+                this.pendingImageRequests.delete(imageKey);
+            }
         }
     }
 
@@ -629,6 +692,13 @@ class ServiceCoordinator {
      */
     async cleanup() {
         await this.stopServices();
+
+        // Clear pending image requests
+        if (this.pendingImageRequests) {
+            this.pendingImageRequests.clear();
+            this.pendingImageRequests = null;
+        }
+
         this.isInitialized = false;
         this.logger?.info('ServiceCoordinator', 'Cleanup completed');
     }

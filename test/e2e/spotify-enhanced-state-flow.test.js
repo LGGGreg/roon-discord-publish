@@ -223,4 +223,74 @@ test.describe('Spotify Service - Enhanced Configuration vs Connection States', (
 
         console.log('✅ Enhanced Flow 4 verified: Config page shows enhanced status indicators');
     });
+
+    test('Enhanced Flow 5: Auto-Reconnection on Credentials Change', async () => {
+        console.log('🧪 Testing Spotify Auto-Reconnection when credentials are changed...');
+
+        // Step 1: Start with empty config (should be disconnected)
+        await navigateToConfig();
+        await setSpotifyCredentials('', '');
+        await page.click('#save-config');
+        await page.waitForTimeout(2000);
+
+        await navigateToStatus();
+        await takeScreenshot('enhanced-5-initial-empty');
+
+        // Verify initial state is not configured
+        const initialStatus = await getSpotifyStatus();
+        console.log('📊 Initial Spotify status:', initialStatus);
+        expect(initialStatus.toLowerCase()).toContain('not configured');
+
+        // Step 2: Set valid credentials and save (should trigger auto-reconnection)
+        await navigateToConfig();
+        const validClientId = testSecrets.spotify.client;
+        const validClientSecret = testSecrets.spotify.secret;
+        await setSpotifyCredentials(validClientId, validClientSecret);
+
+        // Save config (this should trigger auto-reconnection)
+        await page.click('#save-config');
+        console.log('💾 Saved valid Spotify credentials, monitoring for auto-reconnection...');
+
+        await takeScreenshot('enhanced-5-valid-saved');
+
+        // Step 3: Navigate to status page and monitor for auto-reconnection
+        await navigateToStatus();
+        await page.waitForTimeout(2000); // Give time for auto-reconnection to start
+
+        // Monitor status changes for up to 20 seconds (Spotify can be slower)
+        let attempts = 0;
+        const maxAttempts = 40; // 20 seconds
+        let autoReconnectionDetected = false;
+
+        while (attempts < maxAttempts && !autoReconnectionDetected) {
+            attempts++;
+            await page.waitForTimeout(500);
+
+            const currentStatus = await getSpotifyStatus();
+            console.log(`🔍 Attempt ${attempts}: Spotify status = "${currentStatus}"`);
+
+            // Check if Spotify is attempting to connect or has connected (indicating auto-reconnection)
+            if (currentStatus.toLowerCase().includes('connecting') ||
+                currentStatus.toLowerCase().includes('connected') ||
+                currentStatus.toLowerCase().includes('reconnecting')) {
+                autoReconnectionDetected = true;
+                console.log('✅ Auto-reconnection detected!');
+                break;
+            }
+        }
+
+        await takeScreenshot('enhanced-5-final-status');
+
+        // Step 4: Verify auto-reconnection was triggered
+        const finalStatus = await getSpotifyStatus();
+        console.log('📊 Final Spotify status:', finalStatus);
+
+        // Test assertion: Auto-reconnection should have been detected
+        expect(autoReconnectionDetected).toBe(true);
+
+        // Additional check: Final status should not be "Not configured"
+        expect(finalStatus.toLowerCase()).not.toContain('not configured');
+
+        console.log('✅ Enhanced Flow 5 (Auto-Reconnection) completed successfully');
+    });
 });

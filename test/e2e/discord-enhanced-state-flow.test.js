@@ -277,4 +277,73 @@ test.describe('Discord Service - Enhanced Configuration vs Connection States', (
 
         console.log('✅ Enhanced Flow 4 verified: Config page shows enhanced status indicators');
     });
+
+    test('Enhanced Flow 5: Auto-Reconnection on Client ID Change', async () => {
+        console.log('🧪 Testing Discord Auto-Reconnection when Client ID is changed...');
+
+        // Step 1: Start with empty config (should be disconnected)
+        await navigateToConfig();
+        await setDiscordClientId('');
+        await page.click('#save-config');
+        await page.waitForTimeout(2000);
+
+        await navigateToStatus();
+        await takeScreenshot('enhanced-5-initial-empty');
+
+        // Verify initial state is not configured
+        const initialStatus = await getDiscordStatus();
+        console.log('📊 Initial Discord status:', initialStatus);
+        expect(initialStatus.toLowerCase()).toContain('not configured');
+
+        // Step 2: Set valid client ID and save (should trigger auto-reconnection)
+        await navigateToConfig();
+        const validClientId = testSecrets.discord.clientId;
+        await setDiscordClientId(validClientId);
+
+        // Save config (this should trigger auto-reconnection)
+        await page.click('#save-config');
+        console.log('💾 Saved valid Discord client ID, monitoring for auto-reconnection...');
+
+        await takeScreenshot('enhanced-5-valid-saved');
+
+        // Step 3: Navigate to status page and monitor for auto-reconnection
+        await navigateToStatus();
+        await page.waitForTimeout(2000); // Give time for auto-reconnection to start
+
+        // Monitor status changes for up to 15 seconds
+        let attempts = 0;
+        const maxAttempts = 30; // 15 seconds
+        let autoReconnectionDetected = false;
+
+        while (attempts < maxAttempts && !autoReconnectionDetected) {
+            attempts++;
+            await page.waitForTimeout(500);
+
+            const currentStatus = await getDiscordStatus();
+            console.log(`🔍 Attempt ${attempts}: Discord status = "${currentStatus}"`);
+
+            // Check if Discord is attempting to connect or has connected (indicating auto-reconnection)
+            if (currentStatus.toLowerCase().includes('connecting') ||
+                currentStatus.toLowerCase().includes('connected') ||
+                currentStatus.toLowerCase().includes('reconnecting')) {
+                autoReconnectionDetected = true;
+                console.log('✅ Auto-reconnection detected!');
+                break;
+            }
+        }
+
+        await takeScreenshot('enhanced-5-final-status');
+
+        // Step 4: Verify auto-reconnection was triggered
+        const finalStatus = await getDiscordStatus();
+        console.log('📊 Final Discord status:', finalStatus);
+
+        // Test assertion: Auto-reconnection should have been detected
+        expect(autoReconnectionDetected).toBe(true);
+
+        // Additional check: Final status should not be "Not configured"
+        expect(finalStatus.toLowerCase()).not.toContain('not configured');
+
+        console.log('✅ Enhanced Flow 5 (Auto-Reconnection) completed successfully');
+    });
 });
