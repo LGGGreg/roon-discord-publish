@@ -338,7 +338,26 @@ class ServiceCoordinator {
 
             // Send track info to renderer for Now Playing display
             if (trackInfo) {
-                this.notifyRenderer('roon-track-changed', trackInfo);
+                // Get album art for frontend display (independent of Discord/Imgur)
+                if (roonService.isConnected() && trackInfo.image_key) {
+                    // Fetch album art with delay to avoid conflicts, then send complete track info
+                    setTimeout(() => {
+                        this.getAlbumArtForTrack(trackInfo).then(albumArt => {
+                            if (albumArt) {
+                                trackInfo.albumArt = albumArt;
+                            }
+                            // Send complete track info with album art (or without if fetch failed)
+                            this.notifyRenderer('roon-track-changed', trackInfo);
+                        }).catch(error => {
+                            this.logger?.error('ServiceCoordinator', 'Failed to get album art for Now Playing:', error);
+                            // Still notify renderer even if album art fails
+                            this.notifyRenderer('roon-track-changed', trackInfo);
+                        });
+                    }, 2000); // Wait 2 seconds to avoid conflicts with Roon processing
+                } else {
+                    // No album art available, send track info as-is
+                    this.notifyRenderer('roon-track-changed', trackInfo);
+                }
             }
 
             // Update Discord activity if Discord is connected
@@ -420,6 +439,25 @@ class ServiceCoordinator {
 
             // Send zone state change to renderer
             this.notifyRenderer('roon-zone-state-changed', stateChangeInfo);
+        });
+
+        // Handle track position updates for Discord timestamps and UI updates
+        roonService.on('track-position-changed', (trackInfo) => {
+            // Update Discord if it's connected and we have valid track info
+            if (this.services.discordService && this.services.discordService.isConnected() && trackInfo) {
+                // Update Discord activity with new position for accurate timestamps
+                this.updateDiscordActivity(trackInfo);
+            }
+
+            // Send position updates to renderer for UI progress bar
+            if (trackInfo) {
+                this.notifyRenderer('roon-track-position-changed', {
+                    position: trackInfo.position || trackInfo.seek_position || 0,
+                    duration: trackInfo.duration || trackInfo.length || 0,
+                    title: trackInfo.title,
+                    artist: trackInfo.artist
+                });
+            }
         });
     }
 

@@ -69,10 +69,13 @@ function updateCurrentTrack(trackInfo) {
         elements.album.textContent = trackInfo.album || '-';
         elements.zone.textContent = trackInfo.zoneName ? `Zone: ${trackInfo.zoneName}` : '-';
         
-        // Handle album art - only update if albumArt is explicitly provided
+        // Handle album art - only update if albumArt is explicitly provided and different
         if (trackInfo.hasOwnProperty('albumArt')) {
             if (trackInfo.albumArt) {
-                elements.albumImage.src = trackInfo.albumArt;
+                // Only update image src if it's different to prevent unnecessary reloading
+                if (elements.albumImage.src !== trackInfo.albumArt) {
+                    elements.albumImage.src = trackInfo.albumArt;
+                }
                 elements.albumImage.style.display = 'block';
                 elements.noMusic.style.display = 'none';
             } else {
