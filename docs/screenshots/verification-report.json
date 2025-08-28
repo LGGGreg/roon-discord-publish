@@ -1,0 +1,82 @@
+{
+  "timestamp": "2025-08-28T04:12:21.535Z",
+  "verification": {
+    "total": 16,
+    "good": 16,
+    "successRate": 100
+  },
+  "screenshots": {
+    "features": [
+      {
+        "filename": "01-main-window-overview.png",
+        "sizeKB": 118
+      },
+      {
+        "filename": "05-status-tab.png",
+        "sizeKB": 118
+      },
+      {
+        "filename": "06-final-state.png",
+        "sizeKB": 118
+      },
+      {
+        "filename": "app-with-services.png",
+        "sizeKB": 123
+      },
+      {
+        "filename": "main-window-overview.png",
+        "sizeKB": 123
+      },
+      {
+        "filename": "status-tab.png",
+        "sizeKB": 123
+      }
+    ],
+    "setup": [
+      {
+        "filename": "02-configuration-tab.png",
+        "sizeKB": 90
+      },
+      {
+        "filename": "config-tab.png",
+        "sizeKB": 90
+      },
+      {
+        "filename": "configuration-details.png",
+        "sizeKB": 90
+      },
+      {
+        "filename": "configuration-overview.png",
+        "sizeKB": 90
+      }
+    ],
+    "ui": [
+      {
+        "filename": "03-logs-tab.png",
+        "sizeKB": 95
+      },
+      {
+        "filename": "04-help-tab.png",
+        "sizeKB": 82
+      },
+      {
+        "filename": "help-tab.png",
+        "sizeKB": 82
+      },
+      {
+        "filename": "logs-tab.png",
+        "sizeKB": 94
+      }
+    ],
+    "integrations": [
+      {
+        "filename": "connection-states.png",
+        "sizeKB": 123
+      },
+      {
+        "filename": "services-connecting.png",
+        "sizeKB": 123
+      }
+    ]
+  }
+}

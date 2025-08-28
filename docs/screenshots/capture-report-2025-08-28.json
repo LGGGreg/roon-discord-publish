@@ -1,0 +1,15 @@
+{
+  "timestamp": "2025-08-28T03:53:23.302Z",
+  "captureDate": "2025-08-28",
+  "screenshots": {
+    "features": 2,
+    "setup": 0,
+    "ui": 0,
+    "integrations": 1,
+    "journey": 0
+  },
+  "systemInfo": {
+    "platform": "win32",
+    "nodeVersion": "v22.16.0"
+  }
+}
