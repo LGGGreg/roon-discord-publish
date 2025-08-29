@@ -28,6 +28,7 @@
     "test:screenshots-basic": "node test/screenshots/basic-capture.js",
     "test:screenshots-verify": "node test/screenshots/verify-screenshots.js",
     "test:screenshots-improved": "node test/screenshots/improved-capture.js",
+    "debug:track-changes": "node test/debug/track-change-debug.js",
     "test:status": "node test/cli/status-check.js",
     "test:integration": "node test/cli/integration-test.js",
     "test:workflow": "playwright test test/e2e/workflow.test.js",

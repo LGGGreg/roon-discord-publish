@@ -501,22 +501,59 @@ class ServiceCoordinator {
     }
 
     /**
+     * Handle track change immediately without delays
+     */
+    async handleTrackChange(trackInfo) {
+        console.log('🚀 IMMEDIATE track change handler called:', trackInfo?.title || 'null');
+
+        if (!trackInfo) {
+            console.log('🚀 No track info, clearing current track');
+            this.currentTrack = null;
+            this.notifyRenderer('roon-track-changed', null);
+            return;
+        }
+
+        // Update current track immediately
+        this.currentTrack = trackInfo;
+
+        // Notify renderer immediately
+        console.log('🖥️ IMMEDIATE renderer notification');
+        this.notifyRenderer('roon-track-changed', trackInfo);
+
+        // Update Discord immediately if connected and playing
+        if (this.services.discordService && this.services.discordService.isConnected() && trackInfo.state === 'playing') {
+            console.log('🎮 IMMEDIATE Discord update');
+            this.updateDiscordActivity(trackInfo);
+        }
+
+        // Fetch album art in background (don't wait)
+        if (trackInfo.image_key) {
+            this.fetchAlbumArt(trackInfo).catch(error => {
+                console.log('Background album art fetch failed:', error.message);
+            });
+        }
+    }
+
+    /**
      * Update Discord activity with track information (with debouncing)
      */
     async updateDiscordActivity(trackInfo, isRetry = false) {
+        console.log('🎮 updateDiscordActivity CALLED with:', trackInfo?.title || 'null');
+        console.log('🎮 isRetry:', isRetry);
+
         // Clear any pending timeout
         if (this.discordUpdateTimeout) {
             clearTimeout(this.discordUpdateTimeout);
             this.discordUpdateTimeout = null;
         }
 
-        // Rate limiting: Don't update more than once every 3 seconds unless it's a retry
+        // Rate limiting
         const now = Date.now();
         if (!isRetry && (now - this.lastDiscordUpdate) < 3000) {
             this.logger?.debug('ServiceCoordinator', 'Discord update rate limited, debouncing...');
             this.discordUpdateTimeout = setTimeout(() => {
                 this.updateDiscordActivity(trackInfo, true);
-            }, 3000 - (now - this.lastDiscordUpdate));
+            }, 1000 - (now - this.lastDiscordUpdate));
             return;
         }
 

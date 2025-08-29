@@ -30,6 +30,7 @@ class RoonService extends ConnectionManager {
         this.currentTrack = null;
         this.lastPositionUpdate = 0; // Throttle position updates
         this.isSubscribedToZones = false; // Prevent duplicate subscriptions
+        this.trackPollingInterval = null; // Simple polling for track changes
 
         // Debounce track-changed events to prevent overwhelming the connection
         this.trackChangeDebounceTimer = null;
@@ -47,11 +48,26 @@ class RoonService extends ConnectionManager {
     }
 
     /**
-     * Emit track-changed event with debouncing to prevent overwhelming the connection
+     * Emit track-changed event with minimal debouncing for immediate response
      * @param {Object|null} trackInfo - Track information or null to clear
      */
     emitTrackChanged(trackInfo) {
-        // Store the latest track info
+        // For immediate track changes, emit right away if it's a different track
+        const isNewTrack = !this.currentTrack ||
+            !trackInfo ||
+            this.currentTrack.title !== trackInfo.title ||
+            this.currentTrack.artist !== trackInfo.artist;
+
+        if (isNewTrack) {
+            // Emit immediately for new tracks
+            console.log('🚀 EMITTING IMMEDIATE track-changed event:', trackInfo?.title || 'null');
+            console.log('🚀 Event listeners count:', this.listenerCount('track-changed'));
+            this.emit('track-changed', trackInfo);
+            console.log('🚀 track-changed event EMITTED successfully');
+            return;
+        }
+
+        // Only debounce for same track updates (position changes, etc.)
         this.pendingTrackInfo = trackInfo;
 
         // Clear existing timer
@@ -215,6 +231,15 @@ class RoonService extends ConnectionManager {
         // Don't go through subscribeToServices() - too much indirection
         this.subscribeToZonesDirectly();
 
+        // Check for any currently playing tracks after connection is established
+        // This ensures Now Playing display works immediately on connection
+        setTimeout(() => {
+            this.checkForCurrentlyPlayingTrack();
+
+            // Start polling for track changes every 2 seconds (like console app)
+            this.startTrackPolling();
+        }, 3000); // Wait 3 seconds for zones to be populated
+
         // Emit with safe core info (avoid circular references)
         const safeCoreInfo = {
             core_id: core.core_id,
@@ -238,6 +263,9 @@ class RoonService extends ConnectionManager {
         this.currentZone = null;
         this.currentTrack = null;
         this.isSubscribedToZones = false; // Reset subscription flag
+
+        // Stop track polling
+        this.stopTrackPolling();
 
         // Clean up debounce timer
         if (this.trackChangeDebounceTimer) {
@@ -303,6 +331,67 @@ class RoonService extends ConnectionManager {
 
 
     /**
+     * Check for currently playing track after connection
+     * This ensures Now Playing display works immediately on Roon connection
+     */
+    checkForCurrentlyPlayingTrack() {
+        console.log('Checking for currently playing track after connection...');
+
+        if (!this.transport || !this.transport._zones) {
+            return;
+        }
+
+        // Look through all zones for any currently playing track
+        const zones = Object.values(this.transport._zones);
+
+        for (const zone of zones) {
+            if (zone && zone.state === 'playing' && zone.now_playing) {
+                const trackInfo = this.extractTrackInfo(zone);
+                if (trackInfo) {
+                    // Check if this is actually a new track
+                    const isNewTrack = !this.currentTrack ||
+                        this.currentTrack.title !== trackInfo.title ||
+                        this.currentTrack.artist !== trackInfo.artist ||
+                        (trackInfo.image_key && this.currentTrack.image_key !== trackInfo.image_key);
+
+                    if (isNewTrack) {
+                        console.log('Track changed:', trackInfo.title, '-', trackInfo.artist);
+                        this.currentZone = zone;
+                        this.currentTrack = trackInfo;
+                        this.emitTrackChanged(trackInfo);
+                    }
+                    return; // Only process first playing track found
+                }
+            }
+        }
+    }
+
+    /**
+     * Start simple polling for track changes (like console app)
+     */
+    startTrackPolling() {
+        if (this.trackPollingInterval) {
+            clearInterval(this.trackPollingInterval);
+        }
+
+        console.log('Starting track polling every 2 seconds...');
+        this.trackPollingInterval = setInterval(() => {
+            this.checkForCurrentlyPlayingTrack();
+        }, 2000); // Poll every 2 seconds for track changes
+    }
+
+    /**
+     * Stop track polling
+     */
+    stopTrackPolling() {
+        if (this.trackPollingInterval) {
+            clearInterval(this.trackPollingInterval);
+            this.trackPollingInterval = null;
+            console.log('Track polling stopped');
+        }
+    }
+
+    /**
      * Subscribe to zones directly (EXACT console pattern)
      */
     subscribeToZonesDirectly() {
@@ -323,6 +412,7 @@ class RoonService extends ConnectionManager {
 
             this.transport.subscribe_zones((cmd, data) => {
                 try {
+
                     // Handle seek position updates for track position changes
                     if (data && data.zones_seek_changed) {
                         // Process seek position updates for UI position display
@@ -333,18 +423,50 @@ class RoonService extends ConnectionManager {
                                 if (this.currentZone.now_playing) {
                                     this.currentZone.now_playing.seek_position = seekUpdate.seek_position;
 
-                                    // THROTTLE position updates to prevent overwhelming the system
-                                    // Only emit position updates every 2 seconds for UI responsiveness
+                                    // TEMPORARILY DISABLE THROTTLING to see all position updates
                                     const now = Date.now();
-                                    if (!this.lastPositionUpdate || (now - this.lastPositionUpdate) > 2000) {
+
+                                    if (true) { // ALWAYS process position updates for debugging
                                         this.lastPositionUpdate = now;
 
                                         const trackInfo = this.extractTrackInfo(this.currentZone);
+                                        console.log('🔍 POSITION UPDATE: Extracted track info:', trackInfo?.title || 'null');
+                                        console.log('🔍 POSITION UPDATE: Current track:', this.currentTrack?.title || 'null');
                                         if (trackInfo) {
-                                            // Only emit position updates for seek changes, don't check for new tracks here
-                                            // Track changes should be handled by zones_changed events
-                                            this.emit('track-position-changed', trackInfo);
-                                            console.log(`Track position updated: ${trackInfo.title} - ${trackInfo.position || 0}s`);
+                                            // CHECK FOR TRACK CHANGES in position updates - this is the fastest way to detect them!
+                                            // Use multiple identifiers for more reliable track change detection
+                                            console.log('🔍 TRACK COMPARISON:');
+                                            console.log('  Current track title:', this.currentTrack?.title);
+                                            console.log('  New track title:', trackInfo.title);
+                                            console.log('  Current track artist:', this.currentTrack?.artist);
+                                            console.log('  New track artist:', trackInfo.artist);
+                                            console.log('  Current image_key:', this.currentTrack?.image_key);
+                                            console.log('  New image_key:', trackInfo.image_key);
+
+                                            const isNewTrack = !this.currentTrack ||
+                                                this.currentTrack.title !== trackInfo.title ||
+                                                this.currentTrack.artist !== trackInfo.artist ||
+                                                (trackInfo.image_key && this.currentTrack.image_key !== trackInfo.image_key);
+
+                                            console.log('🔍 IS NEW TRACK?', isNewTrack);
+
+                                            if (isNewTrack) {
+                                                this.currentTrack = trackInfo;
+                                                console.log('🎵 NEW TRACK detected in position update (FASTEST):', trackInfo.title, '-', trackInfo.artist);
+                                                console.log('🎵 Track details:', JSON.stringify({
+                                                    title: trackInfo.title,
+                                                    artist: trackInfo.artist,
+                                                    album: trackInfo.album,
+                                                    state: trackInfo.state,
+                                                    position: trackInfo.position,
+                                                    image_key: trackInfo.image_key
+                                                }, null, 2));
+                                                this.emitTrackChanged(trackInfo);
+                                            } else {
+                                                // Just a position update for the same track
+                                                this.emit('track-position-changed', trackInfo);
+                                                console.log(`⏱️ Track position updated: ${trackInfo.title} - ${trackInfo.position || 0}s`);
+                                            }
                                         }
                                     }
                                 }
@@ -396,7 +518,7 @@ class RoonService extends ConnectionManager {
                                         if (isNewTrack) {
                                             this.currentZone = zone; // Set current zone for position updates
                                             this.currentTrack = trackInfo;
-                                            console.log('NEW TRACK detected in zone update:', trackInfo.title, '-', trackInfo.artist);
+                                            console.log('NEW TRACK detected in zone update (IMMEDIATE):', trackInfo.title, '-', trackInfo.artist);
                                             this.emitTrackChanged(trackInfo);
                                             break; // Only process first new track found
                                         }
@@ -419,7 +541,7 @@ class RoonService extends ConnectionManager {
                                         if (isNewTrack) {
                                             this.currentZone = changedZone; // Set current zone for position updates
                                             this.currentTrack = trackInfo;
-                                            console.log('NEW TRACK detected in zones_changed:', trackInfo.title, '-', trackInfo.artist);
+                                            console.log('NEW TRACK detected in zones_changed (IMMEDIATE):', trackInfo.title, '-', trackInfo.artist);
                                             this.emitTrackChanged(trackInfo);
                                         } else {
                                             // Update zone and track info even if same track (for position updates)
@@ -642,17 +764,31 @@ class RoonService extends ConnectionManager {
                     if (this.currentZone.now_playing) {
                         this.currentZone.now_playing.seek_position = seekUpdate.seek_position;
 
-                        // THROTTLE position updates to prevent overwhelming the system
-                        // Only emit position updates every 2 seconds for UI responsiveness
+                        // REDUCED THROTTLE for faster track change detection
+                        // Check every 500ms instead of 2 seconds for faster track change detection
                         const now = Date.now();
-                        if (!this.lastPositionUpdate || (now - this.lastPositionUpdate) > 2000) {
+                        if (!this.lastPositionUpdate || (now - this.lastPositionUpdate) > 500) {
                             this.lastPositionUpdate = now;
 
                             const trackInfo = this.extractTrackInfo(this.currentZone);
                             if (trackInfo) {
-                                this.currentTrack = trackInfo;
-                                this.emit('track-position-changed', trackInfo);
-                                console.log(`Track position updated: ${trackInfo.title} - ${trackInfo.position}s`);
+                                // CHECK FOR TRACK CHANGES in position updates - this is the fastest way to detect them!
+                                // Use multiple identifiers for more reliable track change detection
+                                const isNewTrack = !this.currentTrack ||
+                                    this.currentTrack.title !== trackInfo.title ||
+                                    this.currentTrack.artist !== trackInfo.artist ||
+                                    (trackInfo.image_key && this.currentTrack.image_key !== trackInfo.image_key);
+
+                                if (isNewTrack) {
+                                    this.currentTrack = trackInfo;
+                                    console.log('NEW TRACK detected in position update (FASTEST):', trackInfo.title, '-', trackInfo.artist);
+                                    this.emitTrackChanged(trackInfo);
+                                } else {
+                                    // Just a position update for the same track
+                                    this.currentTrack = trackInfo;
+                                    this.emit('track-position-changed', trackInfo);
+                                    console.log(`Track position updated: ${trackInfo.title} - ${trackInfo.position}s`);
+                                }
                             }
                         }
                     }
