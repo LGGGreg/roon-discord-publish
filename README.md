@@ -6,7 +6,10 @@
 [![Node.js Version](https://img.shields.io/badge/node-16.x-green.svg)](https://nodejs.org/)
 [![Electron](https://img.shields.io/badge/electron-latest-blue.svg)](https://electronjs.org/)
 
+![Discord Status](docs/screenshots/discord/discordStatus.png)
+
 ![Main Application Window](docs/screenshots/features/main-window-overview.png)
+
 
 *The modern GUI interface showing connection status, currently playing track, and easy configuration access*
 
@@ -62,21 +65,21 @@ Automatic reconnection and error handling.
 ### 1. Download & Install
 
 #### Option A: Use the Executable (Recommended)
-1. Download the latest release from the [Releases page](https://github.com/your-username/roon-discord-publish/releases)
+1. Download the latest release from the [Releases page](https://github.com/LGGGreg/roon-discord-publish/releases)
 2. Extract the files to a folder
 3. Run `roon-discord-gui.exe` (Windows) or the equivalent for your platform
 
 #### Option B: Run from Source
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/roon-discord-publish.git
+git clone https://github.com/LGGGreg/roon-discord-publish.git
 cd roon-discord-publish
-
-# Set up local Node.js 16.x (included with the project)
-npm run setup-local-node
 
 # Install dependencies
 npm install
+
+# Set up local Node.js 16.x (required for Electron compatibility)
+npm run setup-local-node
 
 # Run the GUI application
 npm run electron
@@ -114,7 +117,7 @@ The application features a clean, tabbed interface with four main sections:
 1. **Create Discord Application**:
    - Go to [Discord Developer Portal](https://discord.com/developers/applications)
    - Click "New Application"
-   - Give it a name (e.g., "My Music Bot")
+   - Give it a name (e.g., "Roon")
    - Copy the **Application ID**
 
 2. **Configure in App**:
@@ -205,15 +208,26 @@ The application automatically detects:
 ```bash
 npm run electron          # Run the GUI application
 npm run electron-dev      # Run with developer tools
+npm run electron-debug    # Run with Node.js inspector
 npm run build            # Build distributable packages
 ```
 
 ### Development & Testing
 ```bash
-npm run setup-local-node    # Download local Node.js 16.x
+npm run setup-local-node    # Download local Node.js 16.x (required first!)
+npm test                    # Run all Playwright tests
+npm run test:integration    # Run comprehensive integration tests
+npm run test:workflow       # Test complete Roon → Discord workflow
+npm run test:status         # Check service connection status
 npm run test:screenshots    # Capture application screenshots
-npm run test:integration    # Run integration tests
 npm run clean              # Clean build artifacts
+```
+
+### Validate Your Setup
+After installation, you can verify everything is working:
+```bash
+npm run test:integration    # Comprehensive system test
+npm run test:status         # Quick status check
 ```
 
 ## 🐛 Troubleshooting
@@ -234,7 +248,12 @@ npm run clean              # Clean build artifacts
 
 #### Node.js Version Issues
 - ❌ **"TypeError: this.ws.on is not a function"** - You're using Node.js 17+
-- ✅ **Solution**: Use Node.js 16.x or run `npm run local` for local Node.js
+- ✅ **Solution**: Use Node.js 16.x or run `npm run setup-local-node` for local Node.js
+
+#### Setup Issues
+- ❌ **"npm run electron" fails** - Local Node.js not set up
+- ✅ **Solution**: Run `npm run setup-local-node` first, then `npm install`
+- ❌ **Tests fail to start** - Use regular Node.js for tests, not local-node
 
 #### Configuration Issues
 - ❌ **"config.json not found"** - Configuration file missing
@@ -255,18 +274,25 @@ npm run clean              # Clean build artifacts
 
 ### Building from Source
 ```bash
-git clone https://github.com/your-username/roon-discord-publish.git
+git clone https://github.com/LGGGreg/roon-discord-publish.git
 cd roon-discord-publish
 npm install
+npm run setup-local-node    # Required for Electron
 npm run electron-dev
 ```
 
 ### Running Tests
 ```bash
-npm run test:integration    # Integration tests
+npm test                   # All Playwright tests (uses regular Node.js)
+npm run test:integration   # Integration tests
 npm run test:workflow      # E2E workflow tests
 npm run test:screenshots   # Screenshot capture
 ```
+
+### Important Notes
+- **Electron commands** (npm run electron*) use local Node.js 16.x from `local-node/`
+- **Test commands** (npm test) use your system's regular Node.js installation
+- **Always run** `npm run setup-local-node` before using Electron commands
 
 ### Contributing
 1. Fork the repository
@@ -288,8 +314,8 @@ Based on implementations by:
 
 ## 🔗 Links
 
-- [GitHub Repository](https://github.com/your-username/roon-discord-publish)
-- [Issue Tracker](https://github.com/your-username/roon-discord-publish/issues)
+- [GitHub Repository](https://github.com/LGGGreg/roon-discord-publish)
+- [Issue Tracker](https://github.com/LGGGreg/roon-discord-publish/issues)
 - [Roon Labs](https://roonlabs.com/)
 - [Discord Developer Portal](https://discord.com/developers/applications)
 

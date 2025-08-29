@@ -8,7 +8,7 @@ const { execSync } = require('child_process');
 const NODE_VERSION = '16.20.2';
 const PLATFORM = process.platform === 'win32' ? 'win' : process.platform;
 const ARCH = process.arch === 'x64' ? 'x64' : process.arch;
-const NODE_DIR = path.join(__dirname, 'local-node');
+const NODE_DIR = path.join(__dirname, '..', 'local-node');
 const NODE_FILENAME = PLATFORM === 'win' ? `node-v${NODE_VERSION}-${PLATFORM}-${ARCH}` : `node-v${NODE_VERSION}-${PLATFORM}-${ARCH}`;
 const NODE_EXT = PLATFORM === 'win' ? '.zip' : '.tar.xz';
 const NODE_URL = `https://nodejs.org/dist/v${NODE_VERSION}/${NODE_FILENAME}${NODE_EXT}`;
